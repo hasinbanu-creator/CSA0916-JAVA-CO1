@@ -17,17 +17,34 @@ Selecting appropriate data types is fundamental to ensuring numeric correctness,
 |---|---|---|---|---|
 | **Slot Number** | `int` | Primitive | $0$ to $S_f - 1$ (e.g., $0$ to $99$) | Represents a discrete zero-based physical index within a floor. Primitive `int` provides direct array indexing without object wrapper allocation or unboxing overhead. |
 | **Vehicle Registration Number** | `String` | Reference (Immutable) | Standard alphanumeric registration codes (e.g., `"TN01AB1234"`) | Alphanumeric string containing state codes, district codes, and unique vehicle identifiers. Immutable `String` provides thread-safe identity, case-insensitive comparison (`equalsIgnoreCase`), and regular expression format validation. |
-| **Entry Time** | `int` / `long` | Primitive | Non-negative discrete minutes ($\ge 0$) | Represents the elapsed entry time in minutes from a daily or simulation baseline. Storing discrete minutes as an integer primitive simplifies duration arithmetic ($\Delta t = t_{\text{exit}} - t_{\text{entry}}$) and avoids calendar/timezone overhead in basic task operations. *(Note: For production enterprise systems, `java.time.LocalDateTime` would represent calendar dates, but primitive minutes fulfill the core arithmetic requirements).* |
-| **Parking Duration** | `int` / `long` | Primitive | $\ge 0$ minutes | Measures elapsed parking stay in whole minutes. A 32-bit signed `int` comfortably accommodates up to $2^{31}-1$ minutes (over 4,000 years), completely avoiding numerical overflow. |
-| **Parking Fee** | `double` | Primitive | $\ge 0.0$ (64-bit IEEE 754 floating point) | Represents monetary amounts requiring fractional values (e.g., ₹30.00, ₹45.50). Primitive `double` provides 53 bits of significand precision (15–17 decimal digits), eliminating binary precision drift inherent in 32-bit `float`. |
+| **Entry Timestamp / Exit Timestamp** | `java.time.LocalDateTime` | Reference (Temporal) | ISO-8601 calendar date and time | Recommended for representing the actual date and time when a vehicle enters or exits the facility. It captures the year, month, day, hour, minute, and second without ambiguity. A timestamp represents a specific point in time, distinguishing it from elapsed duration. |
+| **Parking Duration** | `long` | Primitive | $\ge 0$ minutes | Measures the calculated elapsed stay in minutes ($\Delta t$). Computed from the difference between exit and entry timestamps (e.g., using `java.time.Duration.between(entry, exit).toMinutes()`). Using `long` prevents integer overflow when accumulating durations across extended periods. |
+| **Parking Fee** | `double` | Primitive | $\ge 0.0$ (64-bit IEEE 754 floating point) | Practical choice for representing monetary amounts in this academic assignment (e.g., ₹30.00, ₹45.50). Primitive `double` provides 53 bits of precision (~15–17 decimal digits), offering higher precision than 32-bit `float`, though exact decimal arithmetic requires `BigDecimal` in enterprise systems. |
 
-### 1.2 Primitive vs. Object Wrapper Considerations
-- **Primitives (`int`, `double`, `boolean`) for State and Arithmetic:**  
-  Primitives are stored directly on the stack (for local variables) or contiguously within object memory (for instance fields). They avoid the 16-to-24 byte memory overhead of wrapper classes (`Integer`, `Double`) and eliminate the risk of `NullPointerException` during arithmetic auto-unboxing.
+### 1.2 Distinguishing Timestamps from Elapsed Duration
+It is essential to distinguish between **point-in-time timestamps** and **elapsed duration**:
+- **Timestamps (`java.time.LocalDateTime`):**  
+  An entry timestamp records *when* a vehicle arrived (e.g., `2026-11-09T09:15:00`). It is a calendar-aware temporal reference. `LocalDateTime` from Java's modern Date-Time API (`java.time`) is strongly recommended for modeling real-world admission and exit timestamps because it is immutable, thread-safe, and avoids legacy flaws found in `java.util.Date`.
+- **Elapsed Duration (`long` in minutes):**  
+  Duration measures *how long* the vehicle remained parked:
+  $$\Delta t = \text{exitTime} - \text{entryTime}$$
+  Using `Duration.between(entry, exit).toMinutes()` produces a discrete `long` scalar representing elapsed whole minutes. Storing duration as a primitive `long` simplifies numeric slab evaluation, eliminates calendar complexity from tariff logic, and completely avoids numeric overflow.
+
+### 1.3 Primitive vs. Object Wrapper Considerations
+- **Storage and Performance:**  
+  In Java, primitive variables (`int`, `long`, `double`, `boolean`) store raw binary values directly without reference indirection. Local primitive variables reside on the thread call stack, whereas primitive instance fields and primitive array elements reside directly within the heap memory of their containing object or array. In contrast, wrapper classes (`Integer`, `Long`, `Double`) encapsulate primitives inside separate heap objects containing standard JVM object headers.
+- **Null Safety and Unboxing:**  
+  Using primitives for slot indices and duration avoids unexpected `NullPointerException` errors that can occur when auto-unboxing wrapper instances during arithmetic or array subscripting.
 - **Reference Types (`String`) for Identifiers:**  
-  Registration numbers and ticket identifiers require text manipulation, immutability, and hashing support, making `java.lang.String` the standard choice.
-- **Why `double` Over `float` for Monetary Computation:**  
-  Java's 32-bit `float` has only 24 bits of mantissa precision (~7 decimal digits). In iterative tariff calculations or multiplication with fractional hours, `float` quickly introduces rounding artifacts (e.g., `0.1f + 0.2f = 0.30000001f`). `double` provides 53 bits of precision (~16 decimal digits). *(Note: While enterprise banking software uses `java.math.BigDecimal` to eliminate binary floating-point representation quirks entirely, `double` is the standard numeric type for academic Java implementations when combined with controlled rounding).*
+  Registration numbers and ticket identifiers contain alphanumeric text, requiring string methods (`equalsIgnoreCase`, formatting). `java.lang.String` is immutable, making it a robust reference type for keys and identification.
+
+### 1.4 Monetary Precision: `double` vs. `float` vs. `BigDecimal`
+- **Why `double` Over `float`:**  
+  Java's 32-bit `float` has only 24 bits of significand precision (~7 decimal digits). In iterative calculations or multiplication with fractional hours, `float` accumulates noticeable binary rounding drift. Primitive `double` (64-bit IEEE 754) provides 53 bits of precision (~15–17 decimal digits), offering substantially higher precision and making it a practical choice for this academic assignment.
+- **Binary Floating-Point Limitations:**  
+  It is important to emphasize that `double` **does not eliminate** binary floating-point representation errors. Because computers represent numbers in base-2, common decimal fractions (such as $0.1$ or $0.7$) have non-terminating repeating binary expansions and cannot be represented exactly in binary floating point.
+- **Enterprise Alternative (`java.math.BigDecimal`):**  
+  For production enterprise banking and mission-critical financial applications, `java.math.BigDecimal` is the industry standard because it performs exact decimal arithmetic with configurable rounding modes (e.g., `RoundingMode.HALF_UP`), eliminating binary floating-point inaccuracies entirely. For this academic assignment, `double` remains a suitable and practical choice when combined with proper rounding techniques.
 
 ---
 
@@ -239,7 +256,8 @@ public class CorrectFeeCalculation {
 }
 ```
 
-*(Note: Specific pricing slabs and vehicle category rates are formalized in subsequent tasks; Task 2 focuses strictly on the data representation and arithmetic precision).*
+> [!IMPORTANT]
+> **Explicit Scope Boundary:** Task 2 does not establish the final fee policy or specific tariff slabs for the campus parking facility. The concrete pricing slabs, rate tiers, vehicle-type fee formulas, and monthly pass waivers are analyzed and implemented in subsequent tasks (specifically Task 3, Task 6, and Task 7). The purpose of this section in Task 2 is strictly to analyze data representation, demonstrate the arithmetic risks of integer division, and show how floating-point promotion and casting preserve numerical accuracy under different billing models.
 
 ---
 
@@ -351,9 +369,12 @@ The assignment briefing requires comparing three distinct structural approaches 
     *(Example: If capacities are $\{20, 15, 25\}$, `offset = {0, 20, 35}`. Slot 4 on Floor 2 maps to index $35 + 4 = 39$).*
 
 #### Design C: Dynamic List of Arrays (`ArrayList<String[]>`)
-- **Adaptability:** Outer collection is a dynamic `ArrayList`, while each element is an array representing a floor.
-- **Behavior:** Adding a floor with any capacity is done via `list.add(new String[capacity])`.
-- **Change Required:** None. Adding new floors or changing capacities is dynamic.
+- **Adaptability:** The outer structure is a resizable `java.util.ArrayList`, where each element is an independently sized `String[]` array representing a floor.
+- **Behavior & Operation Complexities:**
+  - **Random Access:** `ArrayList.get(index)` is backed by an internal array, guaranteeing strictly $\mathcal{O}(1)$ random access by index.
+  - **Accessing a Known Slot:** Locating a known slot via `list.get(floor)[slot]` requires an $\mathcal{O}(1)$ retrieval of the floor array followed by an $\mathcal{O}(1)$ array element access, remaining strictly $\mathcal{O}(1)$ overall.
+  - **Adding a Floor:** Appending a new floor at the end (`list.add(new String[capacity])`) runs in **amortized $\mathcal{O}(1)$** time. It requires an occasional $\mathcal{O}(F)$ array copy operation only when the internal capacity buffer of the `ArrayList` is exhausted and must resize.
+- **Change Required:** None. Floors of any capacity can be added dynamically at runtime without manually re-allocating an outer array.
 
 ---
 
@@ -366,7 +387,7 @@ Let:
 
 | Operation | Design A: Jagged Array (`String[][]`) | Design B: Flattened 1D Array (`String[]`) | Design C: `ArrayList<String[]>` | Technical Discussion |
 |---|---|---|---|---|
-| **Locating a Known Slot** *(given coordinates `floor`, `slot`)* | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ *(with uniform $S$ or with `offset[]`)*<br>$\mathcal{O}(F)$ *(without `offset[]`)* | $\mathcal{O}(1)$ | **Jagged Array:** Two pointer dereferences (`slots[f]` then `[s]`), taking constant time.<br>**1D Array:** Constant-time arithmetic and single array access ($\mathcal{O}(1)$). If non-uniform without prefix table, must sum floor lengths sequentially taking $\mathcal{O}(F)$.<br>**ArrayList:** `list.get(f)` is an array index $\mathcal{O}(1)$ followed by inner array index `[s]` ($\mathcal{O}(1)$). |
+| **Locating a Known Slot** *(given coordinates `floor`, `slot`)* | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ *(with uniform $S$ or with `offset[]`)*<br>$\mathcal{O}(F)$ *(without `offset[]`)* | $\mathcal{O}(1)$ | **Jagged Array:** Two pointer dereferences (`slots[f]` then `[s]`), taking constant $\mathcal{O}(1)$ time.<br>**1D Array:** Constant-time arithmetic and single array access ($\mathcal{O}(1)$) when using the uniform formula or prefix offset. If non-uniform without a prefix table, summing floor lengths takes $\mathcal{O}(F)$.<br>**ArrayList:** `list.get(floor)` is an $\mathcal{O}(1)$ array lookup into the internal backing buffer, followed by `[slot]` array indexing ($\mathcal{O}(1)$). Locating a known slot is strictly $\mathcal{O}(1)$. (Appending a new floor at the end is amortized $\mathcal{O}(1)$). |
 | **Search Across All Slots** *(e.g., finding first free slot or vehicle by regNo)* | $\mathcal{O}(N)$ worst-case | $\mathcal{O}(N)$ worst-case | $\mathcal{O}(N)$ worst-case | In the worst case (facility full, or vehicle at the very last slot / absent), any sequential search algorithm must examine all $N$ slots regardless of data representation. Best case is $\mathcal{O}(1)$ if available at `(0, 0)`. |
 
 ---
