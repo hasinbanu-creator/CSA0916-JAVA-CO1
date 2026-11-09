@@ -9,333 +9,265 @@
 
 ## 1. Problem Analysis
 
-### 1.1 Context and Domain Overview
-The problem requires modeling and implementing a multi-level campus parking management system designed for a university environment. The facility serves three distinct user categories:
-1. **Students** (may hold monthly passes or pay as visitors)
-2. **Staff** (faculty and administrative personnel, typically holding monthly passes)
-3. **Visitors** (guest vehicles paying per-hour standard tariffs)
-
-The facility accommodates multiple vehicle categories:
-- **Two-Wheelers** (motorcycles, scooters)
-- **Cars** (internal combustion engine passenger cars)
-- **Electric Vehicles (EVs)** (may require standard parking or specialized charging slots with supplementary metering)
-
-### 1.2 Core Operational Workflows
-The system orchestrates two primary workflows and one supplementary service:
-1. **Vehicle Entry Workflow:**
-   - Detect vehicle arrival, capture registration number, identify vehicle category, and record user category / pass credentials.
-   - Search the parking facility for an appropriate, unoccupied parking slot matching the vehicle type and charging requirements.
-   - If a suitable slot is found: mark the slot as occupied, generate an immutable parking ticket with a unique ticket number and timestamp, and admit the vehicle.
-   - If no suitable slot is available across all floors: notify the driver that the facility is full and deny entry.
-2. **Vehicle Exit and Billing Workflow:**
-   - On departure, look up the active parking ticket using the ticket number or vehicle registration number.
-   - Record the exit timestamp and compute the total parking duration in minutes/hours.
-   - Compute the parking fee based on vehicle category fee slabs, user category waivers (e.g., free parking for valid monthly pass holders), and any EV charging consumption.
-   - Release the occupied slot back to the pool of free slots.
-   - Issue a detailed billing receipt and mark the ticket as closed.
-3. **EV Charging Management:**
-   - Monitor electricity consumption or charging duration for electric vehicles parked in charging-enabled slots, applying a separate charging tariff.
-
-### 1.3 Scalability Requirements
-The object-oriented design must seamlessly scale through the three phases specified in the briefing:
+### 1.1 Problem Context
+The university campus operates a multi-level parking facility intended for students, staff, and visitors. The system must manage parking operations cleanly as the facility scales:
 $$\text{Phase 1: } 1 \text{ floor} \times 20 \text{ slots} \longrightarrow \text{Phase 2: } 3 \text{ floors} \times 50 \text{ slots} \longrightarrow \text{Phase 3: } 5 \text{ floors} \times 100 \text{ slots}$$
-Furthermore, the design must anticipate the Day-4 Design Challenge (Task 12), which introduces new vehicle categories (e-bikes, delivery vans) and novel pricing schemes (day passes, peak-hour surcharges) without requiring modifications to existing, tested classes (adhering to the Open-Closed Principle).
+
+The facility accommodates three vehicle types:
+- **Two-Wheelers**
+- **Cars**
+- **Electric Vehicles (EVs)** (which may use specialized charging slots charged separately)
+
+Users of the facility belong to distinct categories:
+- **Staff and Students** holding a valid monthly pass park free of charge.
+- **Visitors** pay the full parking fee.
+
+### 1.2 Core Operations Required by the Assignment
+According to the assignment briefing, the system must support two fundamental operational workflows:
+
+1. **Vehicle Entry:**
+   - Detect an arriving vehicle (capturing its registration number, vehicle type, and user credentials/pass).
+   - Locate and allocate a suitable free parking slot on a floor.
+   - Issue a parking ticket containing a unique ticket number.
+   - Record the vehicle's entry time.
+   - If no suitable slot is available, decline admission.
+
+2. **Vehicle Exit:**
+   - Locate the vehicle's parking record upon departure using its ticket or registration number.
+   - Release the occupied slot so it becomes available for subsequent vehicles.
+   - Compute the parking fee based on the vehicle type and duration of stay.
+   - Apply fee exemptions: staff and students with a valid monthly pass park free of charge, whereas visitors pay the computed fee.
+   - Charge separately for EV charging if a charging slot was utilized.
 
 ---
 
 ## 2. System Inputs and Outputs
 
-```
-+--------------------------------------------------------------------------------+
-|                                INPUTS RECEIVED                                 |
-+--------------------------------------------------------------------------------+
-|  Entry Request:                                                                |
-|    - Vehicle Registration Number (String, e.g., "TN01AB1234")                  |
-|    - Vehicle Type (TwoWheeler / Car / ElectricVehicle)                         |
-|    - User Category (Student / Staff / Visitor)                                 |
-|    - Monthly Pass Identifier (Optional String, e.g., "PASS-STF-042")           |
-|    - Charging Required Flag (Boolean, EV-specific)                             |
-|    - Entry Timestamp (LocalDateTime / Epoch minutes)                           |
-|                                                                                |
-|  Exit Request:                                                                 |
-|    - Ticket Number (Long / String, e.g., "TKT-10001")                          |
-|    - Exit Timestamp (LocalDateTime / Epoch minutes)                            |
-|    - Energy Consumed (kWh, EV-specific, if metered)                            |
-|                                                                                |
-|  Administrative & Query Requests:                                              |
-|    - Floor query (floor number), Slot query, Vehicle lookup (by regNo)         |
-+---------------------------------------+----------------------------------------+
-                                        |
-                                        v
-                    +---------------------------------------+
-                    |      Campus Smart-Parking System      |
-                    +---------------------------------------+
-                                        |
-                                        v
-+--------------------------------------------------------------------------------+
-|                                OUTPUTS PRODUCED                                |
-+--------------------------------------------------------------------------------+
-|  Entry Confirmation / Parking Ticket:                                          |
-|    - Unique Ticket Number (e.g., "TKT-10001")                                  |
-|    - Vehicle Registration Number                                               |
-|    - Vehicle Category & User Category                                          |
-|    - Allocated Location: Floor Number, Slot Number                             |
-|    - Entry Date & Time                                                         |
-|                                                                                |
-|  Exit Billing Receipt:                                                         |
-|    - Ticket Number & Vehicle Registration Number                               |
-|    - Entry Time, Exit Time, Total Duration (hours/minutes)                     |
-|    - Base Parking Fee (calculated from tiered rate slabs)                      |
-|    - Charging Surcharge (for EVs using charging infrastructure)                |
-|    - Discount / Pass Waiver Applied (100% waiver for valid pass holders)       |
-|    - Net Payable Amount (INR)                                                  |
-|    - Slot Release Confirmation (Floor X, Slot Y marked VACANT)                 |
-|                                                                                |
-|  System Status / Alerts:                                                       |
-|    - "PARKING FULL: No vacant slot available for vehicle category"             |
-|    - "INVALID TICKET / VEHICLE NOT FOUND"                                      |
-|    - Daily Collection & Occupancy Summary Reports                              |
-+--------------------------------------------------------------------------------+
-```
+The inputs and outputs strictly required by the assignment specification are structured as follows:
+
+### 2.1 System Inputs
+- **Vehicle Registration Number:** Alphanumeric identifier for the entering vehicle (e.g., `"TN01AB1234"`).
+- **Vehicle Type:** Category of vehicle (`Two-Wheeler`, `Car`, or `Electric Vehicle`).
+- **User Role / Pass Indicator:** Designation of the user (`Student`, `Staff`, or `Visitor`) and whether they hold a valid monthly pass.
+- **Charging Slot Request (EV only):** Indication whether an entering electric vehicle requires a charging slot.
+- **Timestamps:**
+  - Entry time recorded when the ticket is issued.
+  - Exit time recorded when the vehicle departs.
+
+### 2.2 System Outputs
+- **Parking Ticket (Issued on Entry):**
+  - Unique ticket identifier (must never be reused).
+  - Allocated location (floor number and slot number).
+  - Vehicle registration number and vehicle type.
+  - Recorded entry time.
+- **Exit Summary / Fee Output (Produced on Exit):**
+  - Released slot confirmation (floor number and slot number).
+  - Total duration of parking.
+  - Computed parking fee based on vehicle type and duration.
+  - EV charging fee (if a charging slot was used).
+  - Net fee payable after applying monthly pass exemption (₹0.00 for valid pass holders; full fee for visitors).
+- **Status / Error Notifications:**
+  - Notification when no suitable free slot is available (parking full).
+  - Notification when an invalid ticket or unrecorded vehicle is queried.
 
 ---
 
 ## 3. Candidate Classes and Methods (Noun-Verb Analysis)
 
-In Object-Oriented Analysis (OOA), problem descriptions are systematically parsed: **nouns** represent candidate classes, attributes, or entities, while **verbs** represent operations, responsibilities, and member methods.
+In Object-Oriented Analysis, nouns extracted from the problem statement serve as candidates for classes and attributes, while verbs identify system operations and candidate methods.
 
-### 3.1 Noun Extraction (Candidate Classes & Attributes)
-- **Problem Nouns:** Campus, Parking Facility / Parking Lot, Floor, Slot / Parking Slot, Vehicle, Two-Wheeler, Car, Electric Vehicle (EV), Charging Slot, Ticket / Parking Ticket, Entry Time, Exit Time, Duration, Fee / Tariff, Staff, Student, Visitor, Monthly Pass.
-- **Filtering & Abstraction:**
-  - *Campus* is the outer domain environment; modeled as the hosting application context.
-  - *Parking Facility / Parking Lot* represents the central aggregate root entity.
-  - *Floor* and *Slot* represent structural containment entities.
-  - *Vehicle* represents an abstract entity with specialized subclasses (*TwoWheeler*, *Car*, *ElectricVehicle*).
-  - *Ticket* encapsulates a transactional parking session.
-  - *User / Monthly Pass* represents user roles and access entitlements.
+### 3.1 Noun Extraction
+- **Entities & Concepts Identified:** Campus, Parking Facility / Parking Lot, Floor, Slot, Vehicle, Two-Wheelers, Cars, Electric Vehicles (EVs), Charging Slots, Ticket / Parking Ticket, Entry Time, Exit Time, Duration, Fee, Staff, Student, Visitor, Monthly Pass.
+- **Filtering:**
+  - *Campus* represents the overarching environment and does not require an independent domain class.
+  - *Entry Time*, *Exit Time*, *Duration*, and *Fee* represent attributes rather than separate classes.
+  - The remaining nouns form our candidate classes.
 
-### 3.2 Verb Extraction (Candidate Methods & Operations)
-- **Problem Verbs:** Enter, Allocate slot, Issue ticket, Record entry time, Leave / Exit, Release slot, Compute duration, Calculate fee, Check pass / verify validity, Charge EV, Find vehicle.
-- **Method Mapping:**
-  - `allocateSlot(Vehicle v)` $\rightarrow$ `ParkingLot` / `ParkingFloor`
-  - `issueTicket(Vehicle v, ParkingSlot s)` $\rightarrow$ `ParkingLot` / `TicketService`
-  - `releaseSlot()` $\rightarrow$ `ParkingSlot`
-  - `calculateFee(long durationMinutes)` $\rightarrow$ `Vehicle` / `BillingService`
-  - `isValid()` $\rightarrow$ `MonthlyPass`
-  - `chargeVehicle(double kWh)` $\rightarrow$ `ChargingSlot` / `Chargeable`
+### 3.2 Verb Extraction
+- **Actions & Operations Identified:** Enter, Allocate slot, Issue ticket, Record entry time, Leave / Exit, Release slot, Compute parking fee, Check monthly pass, Charge EV.
 
-### 3.3 Candidate Class Summary Table
+### 3.3 Candidate Class Identification and Classification
 
-| Candidate Class | Classification / Role | Key Attributes | Key Methods (Derived from Verbs) |
+We categorize candidate classes into **Essential Domain Classes** (strictly required by the core problem) and **Optional Supporting Types** (enumerations to enhance type safety).
+
+| Candidate Class | Category | Primary Responsibilities | Key Candidate Methods (from Verbs) |
 |---|---|---|---|
-| **`Vehicle`** *(abstract)* | Core Domain Entity (Superclass) | `regNo: String`<br>`type: VehicleType`<br>`owner: User` | `getRegNo(): String`<br>`getType(): VehicleType`<br>`calculateBaseFee(long minutes): double`<br>`equals(Object): boolean` |
-| **`TwoWheeler`** | Specialised Entity (Subclass) | Inherited from `Vehicle` | `calculateBaseFee(long minutes): double` *(overridden)* |
-| **`Car`** | Specialised Entity (Subclass) | Inherited from `Vehicle` | `calculateBaseFee(long minutes): double` *(overridden)* |
-| **`ElectricVehicle`** | Specialised Entity (Subclass) | `batteryCapacity: double`<br>`isChargingRequested: boolean` | `calculateBaseFee(long minutes): double` *(overridden)*<br>`getChargingFee(double units): double` |
-| **`ParkingSlot`** | Structural Entity | `slotId: int`<br>`floorNumber: int`<br>`isOccupied: boolean`<br>`currentVehicle: Vehicle`<br>`supportedType: VehicleType` | `isAvailable(): boolean`<br>`assignVehicle(Vehicle v): boolean`<br>`vacate(): Vehicle`<br>`getSlotDetails(): String` |
-| **`ChargingSlot`** | Specialised Slot Entity (Subclass of `ParkingSlot`) | `chargingRatePerUnit: double`<br>`energyConsumedKwh: double` | `connectCharger(ElectricVehicle ev): void`<br>`disconnectCharger(): double`<br>`computeEnergyCost(): double` |
-| **`ParkingFloor`** | Structural Aggregate | `floorNumber: int`<br>`slots: ParkingSlot[]`<br>`capacity: int`<br>`freeCount: int` | `findAvailableSlot(VehicleType type): ParkingSlot`<br>`getOccupancyRate(): double`<br>`displayFloorStatus(): void` |
-| **`ParkingTicket`** | Transactional Value Object | `ticketNumber: String`<br>`vehicle: Vehicle`<br>`allocatedSlot: ParkingSlot`<br>`entryTime: LocalDateTime`<br>`isActive: boolean` | `getDurationMinutes(LocalDateTime exitTime): long`<br>`markCompleted(): void`<br>`getTicketNumber(): String` |
-| **`User`** | Domain Entity | `userId: String`<br>`name: String`<br>`role: UserRole`<br>`pass: MonthlyPass` | `hasValidPass(): boolean`<br>`getUserRole(): UserRole` |
-| **`MonthlyPass`** | Entitlement Value Object | `passId: String`<br>`holderId: String`<br>`expiryDate: LocalDate`<br>`isActive: boolean` | `isValid(): boolean`<br>`renew(int months): void` |
-| **`ParkingLot`** | Aggregate Root / Orchestrator | `name: String`<br>`floors: ParkingFloor[]`<br>`activeTickets: ParkingTicket[]`<br>`ticketSequence: long` | `parkVehicle(Vehicle v): ParkingTicket`<br>`unparkVehicle(String ticketId): Bill`<br>`findVehicle(String regNo): ParkingSlot`<br>`getTotalCollection(): double` |
-| **`Bill`** | Transactional Value Object | `billId: String`<br>`ticket: ParkingTicket`<br>`exitTime: LocalDateTime`<br>`duration: long`<br>`baseFee: double`<br>`chargingFee: double`<br>`netPayable: double` | `generateInvoiceSummary(): String`<br>`getNetPayable(): double` |
+| **`Vehicle`** *(abstract)* | Essential Domain Class | Represents a generalized vehicle entering the campus; holds registration number and common attributes. | `getRegNo()`, `calculateFee(int durationMinutes)` |
+| **`TwoWheeler`** | Essential Domain Class | Subclass of `Vehicle`; represents motorbikes/scooters with two-wheeler-specific fee calculation. | `calculateFee(int durationMinutes)` *(overridden)* |
+| **`Car`** | Essential Domain Class | Subclass of `Vehicle`; represents four-wheelers with car-specific fee calculation. | `calculateFee(int durationMinutes)` *(overridden)* |
+| **`ElectricVehicle`** | Essential Domain Class | Subclass of `Vehicle`; represents EVs; tracks whether charging is requested. | `calculateFee(int durationMinutes)` *(overridden)*, `isChargingRequested()` |
+| **`ParkingSlot`** | Essential Domain Class | Represents an individual parking bay; tracks slot identifier, floor, occupancy state, and assigned vehicle. | `isAvailable()`, `occupy(Vehicle v)`, `vacate()` |
+| **`ChargingSlot`** | Essential Domain Class | Subclass of `ParkingSlot`; represents a slot equipped with EV charging facilities. | `calculateChargingFee(int durationMinutes)` |
+| **`ParkingFloor`** | Essential Domain Class | Represents a floor in the facility; manages an array of slots and counts available spaces. | `findFreeSlot(Vehicle v)`, `getFreeSlotCount()` |
+| **`ParkingFacility`** | Essential Domain Class | The aggregate root representing the parking facility; coordinates multi-floor slot allocation, ticketing, and exit processing. | `allocate(String vehicleNo)` / `park(Vehicle v)`, `release(int floor, int slot)` / `exit(String ticketNo)` |
+| **`ParkingTicket`** | Essential Domain Class | Represents the transactional record issued on entry; pairs a unique ticket number, vehicle, slot, and entry timestamp. | `getTicketNumber()`, `getEntryTime()`, `closeTicket(int exitTime)` |
+| **`MonthlyPass`** | Essential Domain Class | Represents an access pass held by a student or staff member; verifies pass validity for fee exemptions. | `isValid()` |
+| **`VehicleType`** | Optional Supporting Type | Enumeration of supported vehicle categories (`TWO_WHEELER`, `CAR`, `ELECTRIC_VEHICLE`). | Standard enum methods |
+| **`UserRole`** | Optional Supporting Type | Enumeration of user categories (`STUDENT`, `STAFF`, `VISITOR`). | Standard enum methods |
 
 ---
 
 ## 4. Class Responsibilities and Necessity Justification
 
-To satisfy academic rigour and object-oriented design standards, every candidate class must have a defined, cohesive responsibility (Single Responsibility Principle) and a clear justification:
+The assignment requires justifying why each candidate class is necessary, rather than merely listing names:
 
-### 4.1 `Vehicle` (and Subclasses: `TwoWheeler`, `Car`, `ElectricVehicle`)
-- **Responsibilities:** Encapsulates intrinsic vehicle state (registration number, category) and provides polymorphic behaviour for vehicle-specific fee calculations.
-- **Justification:** Without a polymorphic `Vehicle` hierarchy, vehicle properties and tariffs would degrade into error-prone procedural conditional statements (`if-else` chains on raw strings) scattered across the codebase. Specialized subclasses allow new vehicle types (e.g., e-bikes, delivery vans in Task 12) to be plugged in without modifying existing code.
+1. **`Vehicle` (and subclasses `TwoWheeler`, `Car`, `ElectricVehicle`):**
+   - *Necessity:* Different vehicle categories incur different parking fees and have different slot requirements (e.g., EVs may require charging slots). Using an inheritance hierarchy allows polymorphic fee computation (`vehicle.calculateFee(duration)`) and encapsulates vehicle-specific data without cluttering external logic with conditional `switch` or `if-else` statements.
 
-### 4.2 `ParkingSlot` (and `ChargingSlot`)
-- **Responsibilities:** Models a single parking bay on a specific floor. Manages its own occupancy state, associates with the vehicle currently occupying it, and validates vehicle-slot compatibility.
-- **Justification:** A slot is not merely a boolean flag in an array; it holds state (slot number, floor index, supported vehicle size, current occupant) and behaviour (occupancy verification, atomic allocation and release). `ChargingSlot` extends this with energy metering and specialized EV charging rates.
+2. **`ParkingSlot` (and `ChargingSlot`):**
+   - *Necessity:* A slot is more than an index in an array; it holds an occupancy state (free or occupied), a physical identity (floor and slot number), and a reference to the currently parked vehicle. `ChargingSlot` specializes this behavior by associating separate charging fee computation with EV-compatible slots.
 
-### 4.3 `ParkingFloor`
-- **Responsibilities:** Represents an entire floor level. Contains a collection of `ParkingSlot` objects, tracks floor-level capacity and availability, and performs localized slot allocation searches.
-- **Justification:** Encapsulating slots within a `ParkingFloor` abstracts floor-level dimensions from the outer system. When different floors have different capacities or slot configurations (as introduced in the 3-floor and 5-floor facility extensions), the floor encapsulates its specific topology without impacting top-level parking logic.
+3. **`ParkingFloor`:**
+   - *Necessity:* Floors can have different numbers of slots (as explicitly highlighted in the briefing: from uniform floors to floors with different slot counts). Encapsulating slots on a per-floor basis allows the facility to manage capacity and localized slot search cleanly without exposing internal slot arrays.
 
-### 4.4 `ParkingTicket`
-- **Responsibilities:** Serves as an immutable legal and temporal record linking a specific vehicle, an assigned slot, and an exact entry timestamp.
-- **Justification:** The ticket decouples the vehicle and slot from the billing transaction. It prevents race conditions and ensures that billing relies on an unalterable audit trail. When a vehicle leaves, the ticket provides the ground truth for duration and fee calculations.
+4. **`ParkingFacility`:**
+   - *Necessity:* Acts as the central controller for the system. It coordinates searching across multiple floors, issuing tickets, processing departures, and releasing slots, providing a unified interface for the application.
 
-### 4.5 `MonthlyPass` and `User`
-- **Responsibilities:** Models the driver's role (Student, Staff, Visitor) and holds pass validity dates.
-- **Justification:** Separates the vehicle (a physical object) from the user's institutional entitlement (a business privilege). A single staff member may own different vehicles or carpool; associating fee waivers with the user/pass rather than hardcoding it into the vehicle ensures clean separation of concerns.
+5. **`ParkingTicket`:**
+   - *Necessity:* Decouples the vehicle from its temporary parking session. It provides an unalterable record tying together the unique ticket number, vehicle registration number, assigned slot, and entry time. When the vehicle exits, the ticket provides the ground truth needed to calculate duration and fees.
 
-### 4.6 `ParkingLot`
-- **Responsibilities:** Acts as the Aggregate Root (Façade) coordinating system-wide entry and exit operations, delegating slot searches across floors, generating unique ticket sequences, and tracking facility-wide metrics.
-- **Justification:** Provides a single, clean API for client interactions (UI, console runners, or automated tests). It prevents clients from having to navigate raw floor and slot arrays directly.
+6. **`MonthlyPass`:**
+   - *Necessity:* Separates the vehicle (a physical machine) from the user's institutional entitlement (free parking privilege). A staff member or student holds a pass; modeling `MonthlyPass` independently ensures that fee exemption logic is evaluated cleanly without hardcoding user roles directly onto the vehicle.
 
 ---
 
-## 5. System Business Rules
+## 5. Business Rules and Stated Assumptions
 
-Every valid transaction executed by the system must satisfy the following invariant business rules:
+### 5.1 Business Rules Explicitly Stated in the Assignment
+Every valid system operation must satisfy the following invariant rules derived directly from the assignment specification:
 
-1. **Rule 1: Slot Exclusivity**  
-   A single parking slot can hold at most one vehicle at any given instant. A slot marked as occupied cannot be allocated to another vehicle under any circumstance.
-2. **Rule 2: Unique, Non-Reusable Ticket Sequence**  
-   Every issued parking ticket must have a strictly unique ticket number generated sequentially (e.g., using a monotonic counter). Ticket identifiers must never be recycled or reused across sessions, even after a vehicle has departed.
-3. **Rule 3: Vehicle-Slot Type Compatibility**  
-   Vehicles must only be assigned compatible slots:
-   - A `Car` cannot be allocated to a compact `TwoWheeler` slot.
-   - An `ElectricVehicle` requiring charging must be assigned to an available `ChargingSlot`; if charging is not required or no charging slots are vacant, it may use a standard car slot.
-4. **Rule 4: One-to-One Active Parking Session**  
-   A vehicle with a given registration number cannot be issued a new parking ticket if it already holds an active, unclosed ticket in the facility (prevents ghost/duplicate admissions).
-5. **Rule 5: Monthly Pass Exemption & Verification**  
-   Staff and student vehicles associated with a verified, active monthly pass are charged ₹0.00 for standard parking duration. If a pass has expired, the vehicle is subject to standard visitor tariff rates.
-6. **Rule 6: Atomic Slot Release on Settlement**  
-   A parking slot is released and returned to the pool of free slots if and only if the exit settlement is completed (ticket marked closed and fee accounted for).
-7. **Rule 7: Non-Negative Duration and Slab Rounding**  
-   Exit timestamp must be greater than or equal to entry timestamp ($t_{\text{exit}} \ge t_{\text{entry}}$). Duration calculation rounds up partial hours according to university fee slabs (e.g., any fraction of an hour is billed as a full hour).
-8. **Rule 8: Non-Negative Fee Guarantee**  
-   The computed parking fee must satisfy $\text{Fee} \ge 0.00$ under all circumstances. Discounts or pass waivers cannot result in negative billing.
+1. **Slot Exclusivity:** A parking slot cannot hold two vehicles simultaneously. An occupied slot must not be allocated until it has been explicitly released.
+2. **Ticket Identifier Non-Reuse:** Every parking ticket must have a unique ticket number, and a ticket number must never be reused across sessions.
+3. **Suitable Slot Allocation:** When a vehicle enters, the system must allocate a suitable free slot matching the vehicle category (e.g., assigning EV charging slots to EVs requiring charging).
+4. **Mandatory Entry Logging:** Entry requires recording the vehicle's entry time and issuing a ticket with a unique ticket number.
+5. **Slot Release on Departure:** When a vehicle leaves, the system must release the assigned slot and recalculate available capacity.
+6. **Fee Dependence:** Parking fees must depend directly on the vehicle type and the duration of parking.
+7. **Monthly Pass Fee Exemption:** Staff and students holding a valid monthly pass park free of charge (fee = ₹0.00). Visitors pay the full computed parking fee.
+8. **EV Charging Fee Separation:** Electric vehicles utilizing charging slots must be charged a separate charging fee in addition to any applicable parking fee.
 
----
+### 5.2 Stated Design Assumptions
+To implement these rules cleanly, the following reasonable design assumptions are made and clearly distinguished from assignment requirements:
 
-## 6. Facility Assumptions
-
-To establish bounded, realistic scope for the model, the following reasonable assumptions are adopted:
-
-1. **Physical Layout:**
-   - Floors are indexed sequentially from $0$ to $F-1$ (Ground Floor = Floor 0).
-   - Each floor has a fixed contiguous numbering of slots from $0$ to $S_i - 1$.
-   - Slot allocation follows a deterministic **"Nearest Slot First"** strategy: search begins at Floor 0, Slot 0 and proceeds sequentially upward.
-2. **Temporal Representation:**
-   - Time is measured in discrete minutes (either via integer simulation minutes or `java.time.LocalDateTime` truncated to minutes).
-   - Vehicles park for non-negative durations within a single operational semester.
-3. **Operational Mechanics:**
-   - Entry and exit occur through single-lane entry/exit gates processed sequentially (thread concurrency synchronization can be layered subsequently if needed).
-   - The ticket issued at entry is retained by the user and accurately presented at the exit gate.
-4. **EV Charging Constraints:**
-   - EV charging slots are located on designated floors (e.g., Ground Floor / Floor 0) for electrical infrastructure convenience.
-   - Charging tariffs are computed per kilowatt-hour (kWh) or per hour plugged in, added on top of any non-waived parking fee.
+1. **Deterministic Slot Allocation (Assumption):** Slot allocation searches sequentially starting from Floor 0, Slot 0 upward (nearest free slot first).
+2. **Time Measurement (Assumption):** Entry time and exit time are represented in elapsed minutes from a common reference point (or standard integer minutes), and exit time is always greater than or equal to entry time ($t_{\text{exit}} \ge t_{\text{entry}}$).
+3. **Fee Calculation Slabs (Assumption):** While specific monetary rates are established in subsequent tasks (Tasks 3 and 7), fees are assumed to be non-negative ($\text{Fee} \ge 0.00$) and computed on an hourly/minute basis rounded up to the nearest billing unit.
+4. **Ticket Presentation on Exit (Assumption):** A customer presents their valid ticket number upon departure to locate their active parking record.
 
 ---
 
-## 7. Alternative Concept and Complexity Analysis
+## 6. Alternative Concept and Complexity Analysis
 
-The assignment briefing requires evaluating the Object-Oriented Design (where each vehicle is modeled as a polymorphic `Vehicle` object) against a procedural alternative using **Parallel Arrays**:
+The assignment requires comparing the **Object-Oriented Design** (where each vehicle is modeled as a `Vehicle` object) with an alternative procedural design using **Parallel Arrays**:
 ```java
 String regNo[];
 String type[];
 String entryTime[];
 ```
 
-### 7.1 How Vehicle Search Operates in Both Designs
+### 6.1 Finding a Vehicle Using Its Registration Number
 
-#### A. Parallel Arrays Approach
-In the parallel array design, data for the $i$-th vehicle is distributed across three separate arrays at identical index $i$.
+#### In Parallel Arrays
+Each vehicle's data is fragmented across three separate arrays at the same index $i$.
 ```java
-// Parallel Arrays: Finding a vehicle by registration number
+// Linear search in parallel arrays
 public int findVehicleParallel(String[] regNo, int count, String targetRegNo) {
     if (targetRegNo == null) return -1;
     for (int i = 0; i < count; i++) {
         if (targetRegNo.equalsIgnoreCase(regNo[i])) {
-            return i; // Index gives vehicle location across all parallel arrays
+            return i; // Returns index i; attributes accessed via regNo[i], type[i], entryTime[i]
         }
     }
-    return -1; // Vehicle not found
+    return -1; // Not found
 }
 ```
-To obtain the vehicle's attributes, the calling program must dereference the found index across all arrays: `regNo[idx]`, `type[idx]`, and `entryTime[idx]`.
 
-#### B. Object-Oriented Design Approach
-In the OOP design, each vehicle is an encapsulated instance of `Vehicle` (or stored inside a `ParkingTicket` / `ParkingSlot`).
+#### In the Object-Oriented Design
+Each vehicle's attributes are encapsulated within a single cohesive `Vehicle` instance.
 ```java
-// Object-Oriented Design: Finding a vehicle in an array of objects
+// Linear search in an array of Vehicle objects
 public Vehicle findVehicleOOP(Vehicle[] vehicles, int count, String targetRegNo) {
     if (targetRegNo == null) return null;
     for (int i = 0; i < count; i++) {
         if (vehicles[i] != null && targetRegNo.equalsIgnoreCase(vehicles[i].getRegNo())) {
-            return vehicles[i]; // Returns cohesive, fully-typed domain object
+            return vehicles[i]; // Returns the complete, encapsulated Vehicle object
         }
     }
     return null; // Not found
 }
 ```
 
-### 7.2 Impact of Adding a New Vehicle Attribute
-Suppose the university introduces an attribute for electric vehicle tracking: `boolean isCharging` (or `double batteryCapacity`):
+---
 
-- **In the Parallel Array Design:**
-  1. A new array `boolean isCharging[]` must be allocated alongside the existing arrays.
-  2. Every method signature accepting vehicle data must be updated to accept the new array:  
-     `park(String[] regNo, String[] type, String[] entryTime, boolean[] isCharging, ...)`
-  3. Every insertion, deletion, compaction, or sorting operation must explicitly manipulate the new array in lockstep.
-  4. If an insertion updates three arrays but crashes before updating the fourth, the arrays fall **out of synchronization**, causing catastrophic data corruption (index $i$ in array A no longer corresponds to index $i$ in array B).
-- **In the Object-Oriented Design:**
-  1. The new attribute is simply added as a private field in `Vehicle` (or strictly inside the `ElectricVehicle` subclass):
-     ```java
-     public class ElectricVehicle extends Vehicle {
-         private boolean isCharging;
-         // Constructor, getter, setter
-     }
-     ```
-  2. Existing method signatures (`park(Vehicle v)`, `unpark(Vehicle v)`) remain completely untouched.
-  3. Encapsulation prevents partial or desynchronized updates.
+### 6.2 Adding a New Vehicle Attribute
 
-### 7.3 Time Complexity Analysis
+Consider the requirement of adding a new attribute to vehicles, such as `hasPass` (boolean) or `isCharging` (boolean for EVs):
 
-Let $n$ denote the number of currently parked vehicles.
+#### In Parallel Arrays
+1. A completely new array (e.g., `boolean isCharging[]`) must be declared and instantiated alongside existing arrays.
+2. Every method that manipulates vehicle data must have its signature modified to accept the new array:
+   ```java
+   allocate(String[] regNo, String[] type, String[] entryTime, boolean[] isCharging, ...)
+   ```
+3. Insertion, deletion, and compaction logic must be updated across all arrays in exact lockstep.
+4. **Data Desynchronization Risk:** If an operation updates `regNo`, `type`, and `entryTime` but fails to update `isCharging` at index $i$, the arrays become misaligned. Vehicle records become permanently corrupted with no compile-time error.
 
-| Operation | Parallel Arrays Design | Object-Oriented Design | Justification / Analysis |
-|---|---|---|---|
-| **Search by `regNo` (Unordered)** | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ | Both approaches perform a sequential linear scan checking up to $n$ elements in the worst case ($\frac{n}{2}$ on average). |
-| **Search by `regNo` (Sorted)** | $\mathcal{O}(\log n)$ | $\mathcal{O}(\log n)$ | If maintained in sorted order of `regNo`, binary search takes $\mathcal{O}(\log n)$. However, maintaining sorted parallel arrays requires shifting $k$ arrays on every insertion/deletion ($\mathcal{O}(k \cdot n)$). |
-| **Insert New Vehicle** | $\mathcal{O}(1)$ amortized | $\mathcal{O}(1)$ amortized | Appending at index `count` takes constant time in both, assuming pre-allocated capacity. |
-| **Delete / Release Vehicle** | $\mathcal{O}(n)$ or $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | In parallel arrays, removing index $i$ requires shifting $k$ arrays left to maintain contiguous indexing ($\mathcal{O}(k \cdot n)$), or setting entries to `null`. In OOP, nulling the slot reference is an immediate $\mathcal{O}(1)$ operation. |
-
-### 7.4 Space Complexity and Memory Overhead Analysis
-
-Both representations have an asymptotic space complexity of $\mathcal{O}(n)$ for storing $n$ vehicles. However, their actual **JVM heap footprint per vehicle** differs significantly due to object headers and reference structures.
-
-Assume a standard 64-bit JVM with Compressed OOPs (Ordinary Object Pointers enabled, which is default for heaps $< 32\text{ GB}$):
-- Pointer size: 4 bytes (with Compressed OOPs)
-- Standard Object Header: 12 bytes (8-byte Mark Word + 4-byte Klass Word, padded to 8-byte boundary $\rightarrow$ 16 bytes)
-
-#### Memory Layout per Vehicle (3 Attributes: `regNo`, `type`, `entryTime`):
-
-```
-PARALLEL ARRAYS HEAP BREAKDOWN (for n vehicles across 3 arrays):
-  - Array header per array: 16 bytes x 3 = 48 bytes (fixed)
-  - 3 reference slots in arrays: 3 x 4 bytes = 12 bytes per vehicle
-  - Plus the referenced String objects on heap.
-
-OBJECT-ORIENTED DESIGN HEAP BREAKDOWN (per Vehicle instance):
-  - Vehicle Object Header: 12 bytes
-  - 3 reference fields (regNo, type, entryTime): 3 x 4 bytes = 12 bytes
-  - Padding to 8-byte boundary: 0 bytes (12 + 12 = 24 bytes, exact multiple of 8)
-  - 1 pointer in ParkingLot's Vehicle[] array: 4 bytes
-  - Total per vehicle (excluding String payload): 28 bytes
-```
-
-- **Analysis:**  
-  While Parallel Arrays consume approximately 16 bytes less raw object overhead per entry ($12\text{ bytes}$ vs $28\text{ bytes}$), this negligible memory saving is completely overshadowed by the catastrophic loss of safety, modularity, and maintainability.
-
-### 7.5 Design and Maintainability Comparison Matrix
-
-| Criteria | Parallel Arrays Design | Object-Oriented Design (`Vehicle`) |
-|---|---|---|
-| **Encapsulation** | **Violated:** All arrays are exposed. Any code can modify `regNo[i]` without updating `type[i]`. | **Enforced:** Fields are `private`. Invariants are validated inside constructors and mutator methods. |
-| **Type Safety** | **None:** Everything is stored as primitive `String`. Invalid types like `"Rocket"` can be inserted without compile-time checks. | **Strong:** Strong static typing via Java enums (`VehicleType`) or specialized subclasses (`TwoWheeler`, `Car`, `ElectricVehicle`). |
-| **Extensibility (Open-Closed Principle)** | **Extremely Poor:** Adding an attribute or vehicle type requires editing every method handling the arrays. | **High:** New vehicle types subclass `Vehicle` and override specific behaviours without modifying existing code. |
-| **Risk of Data Inconsistency** | **Severe:** Sorting, inserting, or deleting in one array without identically modifying the others corrupts the whole database. | **Zero:** An object is an atomic unit in memory. Moving, passing, or deleting the object moves all its fields together. |
-| **Readability & Academic Value** | Procedural/Primitive obsession antipattern; difficult to trace and maintain. | Follows industry-standard SOLID principles and idiomatic Java clean code guidelines. |
+#### In the Object-Oriented Design
+1. The new attribute is added as a private field with getter/setter methods inside the `Vehicle` class, or strictly within the relevant subclass (e.g., `ElectricVehicle`):
+   ```java
+   public class ElectricVehicle extends Vehicle {
+       private boolean chargingRequested;
+       // Constructor and methods...
+   }
+   ```
+2. Existing method signatures (`allocate(Vehicle v)`, `release(Vehicle v)`) remain completely unchanged.
+3. Because all attributes of a vehicle are bound together within a single object on the heap, fields cannot become misaligned. Data consistency is enforced by the compiler and object encapsulation.
 
 ---
 
-## 8. Summary and Next Steps
+### 6.3 Time Complexity Analysis
 
-Task 1 establishes the foundational object model for the **Campus Smart-Parking System**:
-- The problem domain has been dissected into clear inputs, outputs, and candidate abstractions.
-- Business invariants (slot exclusivity, non-reusable ticket sequence, type compatibility) are formalized.
-- The Object-Oriented paradigm has been rigorously defended against the parallel-arrays anti-pattern using formal Big-O analysis and JVM memory layout considerations.
+Let $n$ denote the number of currently parked vehicles.
 
-This document serves as the specification baseline for **Task 2 (Choose the Data Representation)**.
+| Operation | Parallel Arrays Design | Object-Oriented Design | Discussion & Explanation |
+|---|---|---|---|
+| **Search by `regNo` (Best Case)** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | In both designs, the target vehicle happens to be located at the very first index ($i = 0$), requiring exactly 1 comparison. |
+| **Search by `regNo` (Worst Case)** | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ | In both designs, an unsorted sequential search must inspect all $n$ elements when the vehicle is at index $n-1$ or not present in the system. |
+| **Search by `regNo` (Average Case)** | $\mathcal{O}(n)$ | $\mathcal{O}(n)$ | On average, an unsorted sequential search examines approximately $\frac{n}{2}$ elements before locating the target, which simplifies asymptotically to $\mathcal{O}(n)$. |
+| **Vehicle Insertion** | $\mathcal{O}(1)$ amortized | $\mathcal{O}(1)$ amortized | Appending an entry at the next available index `count` takes constant time in both designs, assuming pre-allocated capacity. |
+| **Vehicle Deletion / Slot Release** | $\mathcal{O}(n)$ to locate + $\mathcal{O}(1)$ or $\mathcal{O}(n)$ to clear | $\mathcal{O}(n)$ to locate + $\mathcal{O}(1)$ or $\mathcal{O}(n)$ to clear | **Important Clarification:** An $\mathcal{O}(1)$ reference nulling only applies *after* the target slot/index is already known. If the vehicle must first be searched by `regNo`, finding it takes $\mathcal{O}(n)$ time. Once located, clearing the position is $\mathcal{O}(1)$ if set to `null`, or $\mathcal{O}(n)$ if remaining elements must be shifted to keep the array contiguous. |
 
+---
+
+### 6.4 Space Complexity and Storage Overhead Analysis
+
+#### Total Space Complexity
+Both approaches require $\mathcal{O}(n)$ total storage space to maintain records for $n$ parked vehicles.
+
+#### Conceptual Storage and Overhead Comparison
+- **Parallel Arrays:**
+  - Requires maintaining $k$ separate array objects (for $k$ attributes: `regNo`, `type`, `entryTime`).
+  - Each array holds $n$ references pointing to individual `String` objects on the heap.
+  - While it avoids intermediate class wrapper instances, it introduces multiple array header overheads and distributes related fields across disconnected memory regions.
+- **Object-Oriented Design:**
+  - Requires a single array of references pointing to $n$ `Vehicle` instances.
+  - Each `Vehicle` instance contains standard Java object overhead (an object header containing mark and class words) and references to its attribute fields.
+  - While OOP incurs a modest per-object header overhead compared to raw parallel arrays, it organizes related attributes contiguously inside a single encapsulated entity. In modern 64-bit JVM environments, this overhead is negligible compared to the architectural stability and memory safety it provides.
+
+---
+
+### 6.5 Maintainability and Design Implications
+
+| Quality Attribute | Parallel Arrays (`regNo[]`, `type[]`, etc.) | Object-Oriented Design (`Vehicle`) |
+|---|---|---|
+| **Encapsulation & Cohesion** | **Low Cohesion:** Attributes representing a single real-world vehicle are scattered across multiple independent arrays. | **High Cohesion:** All data and behaviors pertinent to a vehicle are encapsulated within a single logical unit. |
+| **Type Safety** | **Weak:** Data is stored as primitive `String` arrays. Typos in vehicle types (e.g., `"Carr"` instead of `"Car"`) cannot be caught at compile time. | **Strong:** Leverages Java's static type system and inheritance to enforce correct types at compile time. |
+| **Modularity & Extensibility** | **Poor:** Introducing a new vehicle category or attribute requires modifying every procedural function across the program. | **High (Open-Closed Principle):** New vehicle categories are added by introducing new subclasses without modifying existing code. |
+| **Data Integrity** | **Vulnerable:** Reordering, sorting, or deleting an entry in one array without identically updating the others corrupts the system state. | **Guaranteed:** Because attributes belong to a single object instance, they cannot become desynchronized. |
+
+---
+
+## 7. Summary of Task 1 Findings
+
+1. **Problem Modeling:** The campus parking system is successfully analyzed into core entities (`Vehicle`, `ParkingSlot`, `ParkingFloor`, `ParkingFacility`, `ParkingTicket`, `MonthlyPass`) and operations (allocation, release, fee computation).
+2. **Business Rules:** Explicit constraints (slot exclusivity, unique non-reusable tickets, type compatibility, and pass exemptions) are identified and distinguished from implementation assumptions.
+3. **Alternative Concept Defense:** While parallel arrays achieve the same asymptotic search time ($\mathcal{O}(n)$), they suffer from severe maintainability flaws, high risk of array desynchronization, and lack of type safety. The Object-Oriented design is strongly justified as the superior architecture for the Campus Smart-Parking System.
