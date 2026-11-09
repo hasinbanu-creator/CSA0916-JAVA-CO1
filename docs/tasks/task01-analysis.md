@@ -16,7 +16,7 @@ $$\text{Phase 1: } 1 \text{ floor} \times 20 \text{ slots} \longrightarrow \text
 The facility accommodates three vehicle types:
 - **Two-Wheelers**
 - **Cars**
-- **Electric Vehicles (EVs)** (which may use specialized charging slots charged separately)
+- **Electric Vehicles (EVs)** (which may use specialized charging slots charged separately; parking an EV in a regular slot does not incur a charging fee)
 
 Users of the facility belong to distinct categories:
 - **Staff and Students** holding a valid monthly pass park free of charge.
@@ -37,7 +37,7 @@ According to the assignment briefing, the system must support two fundamental op
    - Release the occupied slot so it becomes available for subsequent vehicles.
    - Compute the parking fee based on the vehicle type and duration of stay.
    - Apply fee exemptions: staff and students with a valid monthly pass park free of charge, whereas visitors pay the computed fee.
-   - Charge separately for EV charging if a charging slot was utilized.
+   - Charge separately for EV charging only when an EV utilizes a designated charging slot (an EV parked in a regular slot does not incur charging fees).
 
 ---
 
@@ -64,7 +64,7 @@ The inputs and outputs strictly required by the assignment specification are str
   - Released slot confirmation (floor number and slot number).
   - Total duration of parking.
   - Computed parking fee based on vehicle type and duration.
-  - EV charging fee (if a charging slot was used).
+  - EV charging fee (applicable only if an electric vehicle occupies and utilizes a designated charging slot; ₹0.00 if parked in a standard slot or for non-EVs).
   - Net fee payable after applying monthly pass exemption (₹0.00 for valid pass holders; full fee for visitors).
 - **Status / Error Notifications:**
   - Notification when no suitable free slot is available (parking full).
@@ -97,7 +97,7 @@ We categorize candidate classes into **Essential Domain Classes** (strictly requ
 | **`Car`** | Essential Domain Class | Subclass of `Vehicle`; represents four-wheelers with car-specific fee calculation. | `calculateFee(int durationMinutes)` *(overridden)* |
 | **`ElectricVehicle`** | Essential Domain Class | Subclass of `Vehicle`; represents EVs; tracks whether charging is requested. | `calculateFee(int durationMinutes)` *(overridden)*, `isChargingRequested()` |
 | **`ParkingSlot`** | Essential Domain Class | Represents an individual parking bay; tracks slot identifier, floor, occupancy state, and assigned vehicle. | `isAvailable()`, `occupy(Vehicle v)`, `vacate()` |
-| **`ChargingSlot`** | Essential Domain Class | Subclass of `ParkingSlot`; represents a slot equipped with EV charging facilities. | `calculateChargingFee(int durationMinutes)` |
+| **`ChargingSlot`** | Essential Domain Class | Proposed Subclass of `ParkingSlot` (Design Choice); represents a slot equipped with EV charging facilities. | `calculateChargingFee(int durationMinutes)` |
 | **`ParkingFloor`** | Essential Domain Class | Represents a floor in the facility; manages an array of slots and counts available spaces. | `findFreeSlot(Vehicle v)`, `getFreeSlotCount()` |
 | **`ParkingFacility`** | Essential Domain Class | The aggregate root representing the parking facility; coordinates multi-floor slot allocation, ticketing, and exit processing. | `allocate(String vehicleNo)` / `park(Vehicle v)`, `release(int floor, int slot)` / `exit(String ticketNo)` |
 | **`ParkingTicket`** | Essential Domain Class | Represents the transactional record issued on entry; pairs a unique ticket number, vehicle, slot, and entry timestamp. | `getTicketNumber()`, `getEntryTime()`, `closeTicket(int exitTime)` |
@@ -115,7 +115,8 @@ The assignment requires justifying why each candidate class is necessary, rather
    - *Necessity:* Different vehicle categories incur different parking fees and have different slot requirements (e.g., EVs may require charging slots). Using an inheritance hierarchy allows polymorphic fee computation (`vehicle.calculateFee(duration)`) and encapsulates vehicle-specific data without cluttering external logic with conditional `switch` or `if-else` statements.
 
 2. **`ParkingSlot` (and `ChargingSlot`):**
-   - *Necessity:* A slot is more than an index in an array; it holds an occupancy state (free or occupied), a physical identity (floor and slot number), and a reference to the currently parked vehicle. `ChargingSlot` specializes this behavior by associating separate charging fee computation with EV-compatible slots.
+   - *Necessity:* A slot is more than an index in an array; it holds an occupancy state (free or occupied), a physical identity (floor and slot number), and a reference to the currently parked vehicle.
+   - *Proposed Design Choice:* Modeling `ChargingSlot` as a specialized subclass inheriting from `ParkingSlot` is a proposed architectural design choice that encapsulates charging capabilities and separate charging fee computation without complicating the base `ParkingSlot` class.
 
 3. **`ParkingFloor`:**
    - *Necessity:* Floors can have different numbers of slots (as explicitly highlighted in the briefing: from uniform floors to floors with different slot counts). Encapsulating slots on a per-floor basis allows the facility to manage capacity and localized slot search cleanly without exposing internal slot arrays.
@@ -143,7 +144,7 @@ Every valid system operation must satisfy the following invariant rules derived 
 5. **Slot Release on Departure:** When a vehicle leaves, the system must release the assigned slot and recalculate available capacity.
 6. **Fee Dependence:** Parking fees must depend directly on the vehicle type and the duration of parking.
 7. **Monthly Pass Fee Exemption:** Staff and students holding a valid monthly pass park free of charge (fee = ₹0.00). Visitors pay the full computed parking fee.
-8. **EV Charging Fee Separation:** Electric vehicles utilizing charging slots must be charged a separate charging fee in addition to any applicable parking fee.
+8. **EV Charging Fee Application:** A separate charging fee applies only when an Electric Vehicle utilizes a designated charging slot. Electric vehicles parked in standard parking slots without using charging infrastructure do not incur this fee.
 
 ### 5.2 Stated Design Assumptions
 To implement these rules cleanly, the following reasonable design assumptions are made and clearly distinguished from assignment requirements:
@@ -241,17 +242,19 @@ Let $n$ denote the number of currently parked vehicles.
 ### 6.4 Space Complexity and Storage Overhead Analysis
 
 #### Total Space Complexity
-Both approaches require $\mathcal{O}(n)$ total storage space to maintain records for $n$ parked vehicles.
+Both the parallel arrays design and the object-oriented design exhibit $\mathcal{O}(n)$ total storage complexity for $n$ parked vehicles, as both store references and data proportional to the total number of vehicle records.
 
 #### Conceptual Storage and Overhead Comparison
+Exact memory overhead in bytes depends on the specific JVM implementation, vendor, hardware architecture (32-bit vs. 64-bit), pointer compression settings (such as Compressed OOPs), and memory alignment/padding rules. Conceptually, the storage characteristics compare as follows:
+
 - **Parallel Arrays:**
   - Requires maintaining $k$ separate array objects (for $k$ attributes: `regNo`, `type`, `entryTime`).
-  - Each array holds $n$ references pointing to individual `String` objects on the heap.
-  - While it avoids intermediate class wrapper instances, it introduces multiple array header overheads and distributes related fields across disconnected memory regions.
+  - Each array holds $n$ reference slots pointing to individual `String` objects on the heap.
+  - While parallel arrays avoid intermediate class instance wrappers, they introduce multiple array header structures and disperse logically related fields across disconnected arrays.
 - **Object-Oriented Design:**
   - Requires a single array of references pointing to $n$ `Vehicle` instances.
-  - Each `Vehicle` instance contains standard Java object overhead (an object header containing mark and class words) and references to its attribute fields.
-  - While OOP incurs a modest per-object header overhead compared to raw parallel arrays, it organizes related attributes contiguously inside a single encapsulated entity. In modern 64-bit JVM environments, this overhead is negligible compared to the architectural stability and memory safety it provides.
+  - Each `Vehicle` instance contains standard JVM object overhead (mark and class metadata words in the object header) and references to its attribute fields.
+  - While the object-oriented approach incurs a modest per-object overhead depending on the JVM object layout, it organizes related attributes contiguously into a single encapsulated entity, greatly improving cohesion and cache locality.
 
 ---
 
@@ -262,7 +265,7 @@ Both approaches require $\mathcal{O}(n)$ total storage space to maintain records
 | **Encapsulation & Cohesion** | **Low Cohesion:** Attributes representing a single real-world vehicle are scattered across multiple independent arrays. | **High Cohesion:** All data and behaviors pertinent to a vehicle are encapsulated within a single logical unit. |
 | **Type Safety** | **Weak:** Data is stored as primitive `String` arrays. Typos in vehicle types (e.g., `"Carr"` instead of `"Car"`) cannot be caught at compile time. | **Strong:** Leverages Java's static type system and inheritance to enforce correct types at compile time. |
 | **Modularity & Extensibility** | **Poor:** Introducing a new vehicle category or attribute requires modifying every procedural function across the program. | **High (Open-Closed Principle):** New vehicle categories are added by introducing new subclasses without modifying existing code. |
-| **Data Integrity** | **Vulnerable:** Reordering, sorting, or deleting an entry in one array without identically updating the others corrupts the system state. | **Guaranteed:** Because attributes belong to a single object instance, they cannot become desynchronized. |
+| **Data Integrity** | **Vulnerable:** Reordering, sorting, or deleting an entry in one array without identically updating the others corrupts the system state. | **Protected:** Encapsulation helps protect object state and reduce the risk of inconsistent updates by bundling attributes together and controlling mutations through methods, preventing index desynchronization. |
 
 ---
 
