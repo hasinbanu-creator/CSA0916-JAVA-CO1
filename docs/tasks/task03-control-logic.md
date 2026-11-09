@@ -21,10 +21,10 @@ Task 3 designs, validates, and implements the fundamental **control logic** gove
 ## 2. Control Logic Design and Discussion
 
 ### 2.1 Search Strategy: Floor-by-Floor and Slot-by-Slot
-The facility follows a deterministic **"Nearest Available Slot First"** strategy:
-- The outer loop iterates through floor numbers in ascending order: $f = 0, 1, \dots, F-1$.
+The facility follows an ascending index search:
+- The outer loop iterates through floor indices in ascending order: $f = 0, 1, \dots, F-1$.
 - The inner loop iterates through slot indices on the current floor: $s = 0, 1, \dots, \text{slots}[f].\text{length}-1$.
-- By prioritizing lower floor indices ($f = 0$ Ground Floor first) and lower slot numbers ($s = 0$ nearest entry gate first), the system minimizes travel distance and traffic congestion inside the parking structure.
+- The algorithm returns the first free slot encountered according to array order ($f = 0$ upward, and $s = 0$ upward within each floor). This provides a predictable, deterministic allocation order matching the indices of the underlying jagged array.
 
 ### 2.2 First Available Slot Allocation and Immediate Termination
 When searching for an available bay, the search must stop the moment an unoccupied slot (`slots[f][s] == null`) is encountered:
@@ -38,41 +38,43 @@ If every slot on every floor has been inspected and no slot contains `null`, bot
 - The method returns `null` to signal that the facility is completely full.
 - Returning `null` provides a clean sentinel value for the calling application (or gate display) to trigger a `"PARKING FULL"` notification and deny vehicle entry.
 
-### 2.4 Control Flow Statements: Strategic Use of `return`, `break`, and `continue`
-Using appropriate control statements simplifies logic and eliminates redundant operations:
-- **`return` for Immediate Exit:**  
-  In `allocate()`, returning the allocated coordinates `{f, s}` immediately terminates the method from within the nested inner loop, avoiding complex boolean flag variables (`boolean found`) or labeled break statements.
-- **`return` for Early Boundary Validation:**  
-  In `release()`, guard clauses test for invalid floor indices, invalid slot indices, or already-free slots, returning `false` immediately before any mutation can occur.
-- **`break` vs. `continue` in Multi-Tier Searching:**  
-  If a floor is known to have zero available slots (e.g., using a free-slot counter), a `continue` statement in the outer loop can skip the inner loop entirely for that floor. Inside a loop, `break` terminates the nearest enclosing loop when a condition is met.
+### 2.4 Control Flow Statements: Use of `return`, `break`, and `continue`
+Understanding how control flow statements operate clarifies the implementation choices:
+- **`return` in `allocate()`:**  
+  In the `allocate()` method, `return` alone is used to immediately exit both nested loops simultaneously upon finding the first free slot (`return new int[]{f, s};`). This eliminates the need for boolean tracking flags or complex loop-breaking logic. If no slot is free, the trailing `return null;` executes after loops terminate.
+- **`return` as Guard Clauses in `release()`:**  
+  In `release()`, early `return false;` statements serve as guard clauses to reject invalid floor indices, invalid slot indices, or attempts to release an already-empty slot before modifying array state.
+- **Roles of `break` and `continue` in Search Control:**  
+  While neither `break` nor `continue` is strictly needed in the primary implementation of `allocate()` (since `return` exits directly), they serve distinct roles in looping logic:
+  - `break` exits the innermost active loop early (for example, if searching within a single floor and stopping once a condition is satisfied).
+  - `continue` skips the remainder of the current iteration and advances to the next iteration (for example, in a multi-tier search where a floor known to have zero free slots can be bypassed by issuing `continue` in the outer loop).
 
 ### 2.5 Fee Slabs Evaluation Using Decision Structures
 
-Fee calculation evaluates parking duration against tiered rate slabs. In Java, this can be structured using chained `if–else if–else` ladders or modern pattern-matching `switch` statements.
+Fee calculation evaluates parking duration against rate slabs according to vehicle type, user category, and optional service usage. In Java, this control logic is expressed using `if–else` decision chains or `switch` statements.
 
-#### Illustrative Fee Slab Models vs. Official Requirements
+#### Illustrative Decision Structure vs. Assignment Specifications
 > [!IMPORTANT]
-> **Distinction Between Illustration and Assignment Rules:**  
-> The assignment specification explicitly states that fee slabs depend on vehicle type and duration of stay (with monthly pass holders parking free). However, Task 3 does not invent permanent university tariff figures. The example below illustrates how multi-tier slabs are structured in control logic using `if–else` vs. `switch`.
+> **Explicit Scope Boundary on Tariffs:**  
+> The assignment specification explicitly states that parking fees depend on vehicle type and duration of stay, that eligible staff and students holding a valid monthly pass park free of charge, and that electric vehicles using charging slots are charged separately for charging. However, Task 3 does not establish official university tariff rates, charging billing units, or specific slab thresholds. Any started-hour rounding or tiered slab numbers presented below are strictly illustrative models used to explain the control logic.
 
-#### Illustrative Slab Structure:
-Suppose a vehicle category has the following hypothetical fee policy:
-- **Tier 1 (First hour or part thereof):** Flat base fee (e.g., ₹30.00)
-- **Tier 2 (Each additional hour up to 8 hours):** Incremental hourly rate (e.g., ₹20.00/hour)
-- **Tier 3 (Daily cap / Maximum charge beyond 8 hours):** Capped maximum fee (e.g., ₹200.00)
+#### Illustrative Tiered Slab Structure:
+To demonstrate how decision branching manages progressive rates, consider an illustrative policy:
+- **Tier 1 (First hour or part thereof):** Base rate applied
+- **Tier 2 (Additional hours up to a threshold):** Incremental hourly rate applied
+- **Tier 3 (Daily maximum):** Capped maximum charge
 
 ```java
-// Illustrative Control Logic for Tiered Fee Slabs
+// Illustrative Example of Decision Logic for Tiered Slabs
 public static double calculateIllustrativeFee(int billedHours, double baseRate, 
                                               double hourlyRate, double dailyMax) {
     if (billedHours <= 0) {
         return 0.0;
     } else if (billedHours == 1) {
-        // Tier 1: First hour flat fee
+        // Tier 1: First hour flat base rate
         return baseRate;
     } else if (billedHours <= 8) {
-        // Tier 2: First hour plus additional hours
+        // Tier 2: Base rate plus incremental rate
         double fee = baseRate + (billedHours - 1) * hourlyRate;
         return Math.min(fee, dailyMax);
     } else {
@@ -82,8 +84,8 @@ public static double calculateIllustrativeFee(int billedHours, double baseRate,
 }
 ```
 
-- **`if–else` Ladder:** Best suited for continuous range conditions (e.g., `billedHours <= 8`) and floating-point comparisons.
-- **`switch` Expressions:** Highly effective when branching on discrete categorical inputs (e.g., `vehicleType`: `TWO_WHEELER`, `CAR`, `ELECTRIC_VEHICLE`).
+- **`if–else` Ladder:** Appropriate for continuous range conditions (e.g., duration thresholds like `billedHours <= 8`).
+- **`switch` Expressions:** Appropriate for branching on known, discrete categorical inputs (e.g., `vehicleType`). Invalid categories should be rejected explicitly rather than assigned arbitrary default rates.
 
 ---
 
@@ -195,68 +197,78 @@ END
 ### 3.3 Algorithm: Fee Computation (`ComputeParkingFee`)
 
 ```text
-ALGORITHM ComputeParkingFee(durationMinutes, vehicleType, hasMonthlyPass, isChargingSlot, rates)
-// Computes parking fee using duration, vehicle category, pass waiver, and charging status.
+ALGORITHM ComputeParkingFee(durationMinutes, vehicleType, userRole, hasMonthlyPass, isChargingSlotUsed, rates)
+// Computes parking fee using duration, vehicle category, pass waiver, and separate charging status.
 // Preconditions:
 //   durationMinutes is a non-negative integer.
-//   vehicleType is one of {TWO_WHEELER, CAR, ELECTRIC_VEHICLE}.
-//   hasMonthlyPass is a boolean.
-//   isChargingSlot is a boolean indicating charging bay utilization.
-//   rates is a configuration structure containing hourly tariffs and charging rates.
+//   vehicleType is one of {"TWO_WHEELER", "CAR", "ELECTRIC_VEHICLE"}.
+//   userRole is one of {"STUDENT", "STAFF", "VISITOR"}.
+//   hasMonthlyPass is a boolean (true if holder has an active, valid pass).
+//   isChargingSlotUsed is a boolean (true strictly if an EV occupied a charging bay).
+//   rates is a configurable rates structure providing vehicle-type tariffs and charging rates.
 // Postconditions:
-//   Returns total non-negative fee payable (FLOAT/DOUBLE).
+//   Returns total non-negative fee payable (DOUBLE), or -1.0 if inputs are invalid.
+// Note: Started-hour rounding and specific rate variables are illustrative models.
 
 INPUT:
-    durationMinutes : INTEGER
-    vehicleType     : STRING
-    hasMonthlyPass  : BOOLEAN
-    isChargingSlot  : BOOLEAN
-    rates           : RATE_CONFIG
+    durationMinutes    : INTEGER
+    vehicleType        : STRING
+    userRole           : STRING
+    hasMonthlyPass     : BOOLEAN
+    isChargingSlotUsed : BOOLEAN
+    rates              : CONFIGURABLE_RATES
 
 OUTPUT:
-    totalFee        : DOUBLE
+    totalFee           : DOUBLE
 
 VARIABLES:
-    billedHours     : INTEGER
-    hourlyRate      : DOUBLE
-    parkingFee      : DOUBLE
-    chargingFee     : DOUBLE
+    billedUnits        : INTEGER
+    baseRate           : DOUBLE
+    parkingFee         : DOUBLE
+    chargingFee        : DOUBLE
 
 BEGIN
-    // Step 1: Base validation
-    IF durationMinutes <= 0 THEN
-        RETURN 0.0
+    // Step 1: Duration validation
+    IF durationMinutes < 0 THEN
+        RETURN -1.0 // Invalid negative duration: reject
     END IF
 
-    // Step 2: Determine applicable base rate per vehicle type
+    IF durationMinutes = 0 THEN
+        RETURN 0.0 // Zero duration stay: no fee incurred
+    END IF
+
+    // Step 2: Determine applicable base rate per vehicle type; reject unknown categories
     SWITCH vehicleType DO
         CASE "TWO_WHEELER":
-            hourlyRate <- rates.twoWheelerRate
+            baseRate <- rates.twoWheelerRate
         CASE "CAR":
-            hourlyRate <- rates.carRate
+            baseRate <- rates.carRate
         CASE "ELECTRIC_VEHICLE":
-            hourlyRate <- rates.electricVehicleRate
+            baseRate <- rates.electricVehicleRate
         DEFAULT:
-            hourlyRate <- rates.defaultRate
+            RETURN -1.0 // Unknown vehicle category: reject transaction
     END SWITCH
 
-    // Step 3: Round duration up to full started hours (Ceiling Rounding)
-    billedHours <- CEIL(durationMinutes / 60.0)
+    // Step 3: Compute billable units (Illustrative assumption: started-hour ceiling rounding)
+    billedUnits <- CEIL(durationMinutes / 60.0)
 
-    // Step 4: Compute base parking charge with monthly pass waiver
-    IF hasMonthlyPass = TRUE THEN
+    // Step 4: Compute base parking fee with monthly pass exemption
+    // Eligible staff and students holding a valid monthly pass park free of charge;
+    // visitors and non-pass holders pay the full computed parking fee.
+    IF (userRole = "STUDENT" OR userRole = "STAFF") AND hasMonthlyPass = TRUE THEN
         parkingFee <- 0.0
     ELSE
-        parkingFee <- billedHours * hourlyRate
+        parkingFee <- billedUnits * baseRate
     END IF
 
-    // Step 5: Add charging fee only if vehicle utilized a charging slot
+    // Step 5: Compute separate EV charging fee strictly when a charging slot is used
     chargingFee <- 0.0
-    IF vehicleType = "ELECTRIC_VEHICLE" AND isChargingSlot = TRUE THEN
-        chargingFee <- billedHours * rates.chargingRatePerHour
+    IF vehicleType = "ELECTRIC_VEHICLE" AND isChargingSlotUsed = TRUE THEN
+        // Separate charging fee applies only upon active charging slot usage
+        chargingFee <- billedUnits * rates.chargingRate
     END IF
 
-    // Step 6: Return total aggregate fee
+    // Step 6: Return aggregate total fee
     totalFee <- parkingFee + chargingFee
     RETURN totalFee
 END
@@ -410,14 +422,14 @@ The assignment briefing requires analyzing an alternative design:
 
 ### 5.3 Time Complexity Comparison
 
-Let $F$ denote the number of floors, $S$ denote the number of slots per floor, and $N = F \cdot S$ denote the total capacity.
+Let $F$ denote the number of floors, $S$ denote the number of slots per floor, and $N = F \cdot S$ denote the total parking capacity across all floors.
 
 | Operation | Baseline Linear Scan | Alternative (Count + Stacks) | Complexity Analysis & Assumptions |
 |---|---|---|---|
-| **`allocate()` — Best Case** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | **Baseline:** First inspected slot (`slots[0][0]`) is free; loop exits immediately.<br>**Alternative:** Floor 0 has $\text{freeCount}[0] > 0$; pops slot from stack in $\mathcal{O}(1)$. |
-| **`allocate()` — Worst Case** | $\mathcal{O}(N)$ or $\mathcal{O}(F \cdot S)$ | $\mathcal{O}(F)$ | **Baseline:** Facility is completely full (or only the very last slot `slots[F-1][S-1]` is free). Must inspect all $N$ slots.<br>**Alternative:** Inspects at most $F$ floor counters. Once a non-empty floor is found, `pop()` is $\mathcal{O}(1)$. Reduces worst-case time from $\mathcal{O}(F \cdot S)$ to $\mathcal{O}(F)$. |
-| **`allocate()` — Average Case** | $\mathcal{O}(N)$ | $\mathcal{O}(F)$ | On average, baseline inspects $\approx \frac{N}{2}$ slots ($\mathcal{O}(N)$). Alternative inspects $\approx \frac{F}{2}$ counters before popping ($\mathcal{O}(F)$). |
-| **`release()`** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | **Baseline:** Validates index bounds and sets `slots[floor][slot] = null`. Strictly constant time.<br>**Alternative:** Validates bounds, clears slot, pushes to stack ($\mathcal{O}(1)$), and increments counter ($\mathcal{O}(1)$). Strictly constant time. |
+| **`allocate()` — Best Case** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | **Baseline:** The very first inspected slot (`slots[0][0]`) is vacant; the loops terminate on the first iteration.<br>**Alternative:** The first floor counter ($\text{freeCount}[0] > 0$) indicates availability; a slot number is popped from the stack in $\mathcal{O}(1)$. |
+| **`allocate()` — Worst Case** | $\mathcal{O}(F \times S)$ | $\mathcal{O}(F)$ | **Baseline:** The facility is completely full, or only the final slot (`slots[F-1][S-1]`) is vacant. All $F \times S$ positions must be examined.<br>**Alternative:** Inspects at most $F$ floor counters. Once an available floor is found, `pop()` retrieves a free slot in $\mathcal{O}(1)$. Reduces worst-case search time from $\mathcal{O}(F \times S)$ down to $\mathcal{O}(F)$. |
+| **`allocate()` — Average Case Analysis** | $\mathcal{O}(F \times S)$ | $\mathcal{O}(F)$ | *Assumption:* If vacant slots are assumed to be uniformly distributed across the facility, linear scanning inspects a fraction of total slots proportional to $F \times S$, maintaining asymptotic $\mathcal{O}(F \times S)$ complexity. Similarly, scanning floor counters takes time proportional to $F$, yielding $\mathcal{O}(F)$. Under non-uniform empirical traffic patterns, worst-case upper bounds remain the formal benchmark. |
+| **`release()`** | $\mathcal{O}(1)$ | $\mathcal{O}(1)$ | **Baseline:** Validates coordinates and resets `slots[floor][slot] = null`. Strictly constant time.<br>**Alternative:** Validates coordinates, clears slot, pushes the slot number onto the floor's stack in $\mathcal{O}(1)$, and increments the floor counter in $\mathcal{O}(1)$. Strictly constant time, assuming valid stack operations and prevention of duplicate releases. |
 
 ---
 
@@ -425,20 +437,20 @@ Let $F$ denote the number of floors, $S$ denote the number of slots per floor, a
 
 | Metric | Baseline Linear Scan | Alternative (Count + Stacks) |
 |---|---|---|
-| **Primary Slot Storage** | $\mathcal{O}(F \cdot S)$ (`String[][]`) | $\mathcal{O}(F \cdot S)$ (`String[][]`) |
-| **Extra Auxiliary Space** | $\mathcal{O}(1)$ (Zero auxiliary structures) | $\mathcal{O}(F \cdot S)$ auxiliary space |
-| **Auxiliary Heap Allocations** | None. | - 1 array of integers (`int[F]`) $\rightarrow \mathcal{O}(F)$<br>- 1 array of Stack references (`Stack[F]`) $\rightarrow \mathcal{O}(F)$<br>- $F$ `Stack` instances containing up to $N = F \cdot S$ Integer node references $\rightarrow \mathcal{O}(F \cdot S)$ |
+| **Primary Slot Storage** | $\mathcal{O}(F \times S)$ (`String[][]`) | $\mathcal{O}(F \times S)$ (`String[][]`) |
+| **Extra Auxiliary Space** | $\mathcal{O}(1)$ (Zero auxiliary tracking structures) | $\mathcal{O}(F \times S)$ auxiliary memory |
+| **Auxiliary Memory Breakdown** | None. Space is limited to local loop variables $f$ and $s$ on the call stack. | - 1 array of integers for floor counters: `int[F]` $\rightarrow \mathcal{O}(F)$<br>- 1 array of Stack references: `Stack[F]` $\rightarrow \mathcal{O}(F)$<br>- $F$ `Stack` instances containing up to $F \times S$ Integer references $\rightarrow \mathcal{O}(F \times S)$ |
 
 ---
 
 ### 5.5 Trade-offs, Ordering Implications, and Design Evaluation
 
 1. **Time vs. Space Trade-off:**  
-   The alternative design trades $\mathcal{O}(F \cdot S)$ extra auxiliary memory to achieve a faster allocation time of $\mathcal{O}(F)$ instead of $\mathcal{O}(F \cdot S)$. In very large facilities (e.g., 5 floors with 1,000 slots per floor), this is an effective optimization ($5$ iterations vs. $5,000$).
-2. **Slot Allocation Ordering (LIFO vs. Lowest-Slot):**  
-   - The **baseline linear scan** strictly guarantees that the lowest-numbered slot on the lowest-numbered floor is always allocated first (deterministic spatial locality).
-   - The **stack-based alternative** is Last-In, First-Out (LIFO). When a slot is released, it is pushed to the top of the stack and will be re-allocated *before* previously released lower-numbered slots.
-   - If lowest-slot allocation ordering must be preserved, a **Min-Heap (Priority Queue)** or **ordered bitset** would be required instead of a Stack, which would increase release time to $\mathcal{O}(\log S)$.
+   The alternative design trades $\mathcal{O}(F \times S)$ auxiliary memory to reduce allocation time from $\mathcal{O}(F \times S)$ to $\mathcal{O}(F)$. For a large facility with many slots per floor (e.g., $F = 5, S = 100$), searching at most 5 counters is substantially faster than scanning up to 500 slot references.
+2. **Loss of Lowest-Slot-First Ordering (LIFO Behavior):**  
+   - In the **baseline linear scan**, allocation always selects the first free slot according to array order (lowest floor index, lowest slot index).
+   - In the **stack-based alternative**, a Stack is Last-In, First-Out (LIFO). When an occupied slot is released, its slot number is pushed onto the top of that floor's stack. The subsequent allocation will pop that most-recently released slot first—even if a lower-numbered slot on the same floor was already vacant.
+   - Therefore, a stack-based approach **does not preserve lowest-slot-first ordering** once releases occur. If ascending slot order must be strictly preserved, an ordered data structure (such as a Min-Heap or an ordered bitset) would be required, which would increase release time from $\mathcal{O}(1)$ to $\mathcal{O}(\log S)$.
 
 ---
 
