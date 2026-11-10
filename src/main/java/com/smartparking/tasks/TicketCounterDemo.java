@@ -164,11 +164,12 @@ public class TicketCounterDemo {
         FacilityGate southGate = new FacilityGate("South-Gate");
 
         ParkingTicket t1 = northGate.issueTicketShared("TN01AA1111", "CAR", 0, 1);
-        ParkingTicket t2 = southGate.issueTicketShared("TN02BB2222", "TWO_WHEELER", 0, 2);
-        ParkingTicket t3 = northGate.issueTicketShared("TN03CC3333", "CAR", 1, 0);
-
         System.out.println("Ticket 1 (North Gate): ID = " + t1.getTicketNumber() + ", Counter = " + getSharedTicketCounter());
+
+        ParkingTicket t2 = southGate.issueTicketShared("TN02BB2222", "TWO_WHEELER", 0, 2);
         System.out.println("Ticket 2 (South Gate): ID = " + t2.getTicketNumber() + ", Counter = " + getSharedTicketCounter());
+
+        ParkingTicket t3 = northGate.issueTicketShared("TN03CC3333", "CAR", 1, 0);
         System.out.println("Ticket 3 (North Gate): ID = " + t3.getTicketNumber() + ", Counter = " + getSharedTicketCounter());
         System.out.println("Notice: Both distinct gate instances share the single static counter sequence in this JVM.");
 
