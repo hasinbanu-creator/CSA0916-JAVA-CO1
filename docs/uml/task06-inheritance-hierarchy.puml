@@ -1,0 +1,64 @@
+@startuml task06-inheritance-hierarchy
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+abstract class Vehicle {
+    - registrationNumber : String
+    - vehicleType : String
+    + Vehicle(registrationNumber : String, vehicleType : String)
+    + getRegistrationNumber() : String
+    + getVehicleType() : String
+    + getVehicleInfo() : String
+    + toString() : String
+}
+
+class TwoWheeler {
+    - hasHelmetStorage : boolean
+    + TwoWheeler(registrationNumber : String, hasHelmetStorage : boolean)
+    + hasHelmetStorage() : boolean
+    + getDetailedInfo() : String
+    + toString() : String
+}
+
+class Car {
+    - seatingCapacity : int
+    + Car(registrationNumber : String, seatingCapacity : int)
+    + getSeatingCapacity() : int
+    + getDetailedInfo() : String
+    + toString() : String
+}
+
+class ElectricCar {
+    - batteryCapacityKWh : double
+    - currentBatteryLevelKWh : double
+    - isCharging : boolean
+    + ElectricCar(registrationNumber : String, batteryCapacityKWh : double)
+    + ElectricCar(registrationNumber : String, batteryCapacityKWh : double, initialBatteryLevelKWh : double)
+    + getBatteryCapacityKWh() : double
+    + getCurrentBatteryLevelKWh() : double
+    + isCharging() : boolean
+    + startCharging() : void
+    + stopCharging() : void
+    + charge(energyKWh : double) : void
+    + getDetailedInfo() : String
+    + toString() : String
+}
+
+Vehicle <|-- TwoWheeler : extends
+Vehicle <|-- Car : extends
+Vehicle <|-- ElectricCar : extends
+
+note right of Vehicle
+  Abstract Superclass
+  Common root for hierarchical inheritance.
+  Encapsulates common registration and category.
+end note
+
+note bottom of ElectricCar
+  Subclass representing EVs.
+  Introduces battery capacity and charging controls.
+end note
+
+@enduml
+
