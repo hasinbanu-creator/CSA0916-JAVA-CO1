@@ -191,6 +191,37 @@ class VehicleOverrideTest {
         constructor.setAccessible(true);
         assertThrows(InvocationTargetException.class, constructor::newInstance,
                 "Instantiating ParkingTariff via reflection must throw InvocationTargetException wrapping UnsupportedOperationException");
+
+        // 5. Verify equals(Object) is declared final in Vehicle
+        assertTrue(Modifier.isFinal(Vehicle.class.getMethod("equals", Object.class).getModifiers()),
+                "equals(Object) should be declared final in Vehicle");
+
+        // 6. Verify hashCode() is declared final in Vehicle
+        assertTrue(Modifier.isFinal(Vehicle.class.getMethod("hashCode").getModifiers()),
+                "hashCode() should be declared final in Vehicle");
+    }
+
+    @Test
+    void testLongMaxValueBoundaryFeeCalculation() {
+        long maxMinutes = Long.MAX_VALUE;
+        long expectedHours = 1 + (maxMinutes - 1) / ParkingTariff.MINUTES_PER_HOUR;
+        assertEquals(153722867280912931L, expectedHours);
+
+        // Verify calculateStartedHours does not overflow
+        long startedHours = ParkingTariff.calculateStartedHours(maxMinutes);
+        assertEquals(expectedHours, startedHours, "calculateStartedHours must not overflow on Long.MAX_VALUE");
+
+        // Verify calculateFee for each subclass handles Long.MAX_VALUE
+        Vehicle bike = new TwoWheeler("TN01A1", false);
+        Vehicle car = new Car("TN02B2", 5);
+        Vehicle ev = new ElectricCar("TN03C3", 60.0);
+
+        assertEquals((double) expectedHours * ParkingTariff.TWO_WHEELER_RATE_PER_HOUR,
+                bike.calculateFee(maxMinutes), 1.0);
+        assertEquals((double) expectedHours * ParkingTariff.CAR_RATE_PER_HOUR,
+                car.calculateFee(maxMinutes), 1.0);
+        assertEquals((double) expectedHours * ParkingTariff.ELECTRIC_CAR_RATE_PER_HOUR,
+                ev.calculateFee(maxMinutes), 1.0);
     }
 }
 

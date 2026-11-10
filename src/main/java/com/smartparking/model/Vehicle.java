@@ -77,31 +77,26 @@ public abstract class Vehicle {
 
     /**
      * Helper method to compute billable hours rounded up to the next full started hour.
-     * A stay of 0 minutes costs 0 hours. Any fraction of an hour is charged in full.
+     * Delegates to the overflow-safe calculation in ParkingTariff.
      *
      * @param durationMinutes parking duration in minutes
      * @return billable whole hours
      */
     protected static long computeStartedHours(long durationMinutes) {
-        if (durationMinutes < 0) {
-            throw new IllegalArgumentException("Parking duration cannot be negative.");
-        }
-        if (durationMinutes == 0) {
-            return 0;
-        }
-        return (durationMinutes + 59) / 60;
+        return ParkingTariff.calculateStartedHours(durationMinutes);
     }
 
     /**
      * Evaluates logical equality between two Vehicle objects based on registration number.
      * Two vehicles with the identical registration number represent the same physical vehicle
      * license plate, regardless of whether they are referenced via Vehicle, Car, or ElectricCar.
+     * Declared final to protect the vehicle identity contract from subclass modification.
      *
      * @param obj target object for comparison
      * @return true if obj is a Vehicle with the identical normalized registration number
      */
     @Override
-    public boolean equals(Object obj) {
+    public final boolean equals(Object obj) {
         if (this == obj) {
             return true;
         }
@@ -115,11 +110,12 @@ public abstract class Vehicle {
      * Returns a hash code consistent with equals().
      * Conforms strictly to the equals/hashCode contract by deriving hash code
      * exclusively from the unique registration number.
+     * Declared final to protect the vehicle identity contract from subclass modification.
      *
      * @return computed hash code
      */
     @Override
-    public int hashCode() {
+    public final int hashCode() {
         return Objects.hash(registrationNumber);
     }
 

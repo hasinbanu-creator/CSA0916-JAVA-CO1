@@ -11,8 +11,8 @@ abstract class Vehicle {
     + {final} getVehicleType() : String
     + getVehicleInfo() : String
     + {abstract} calculateFee(durationMinutes : long) : double
-    + equals(obj : Object) : boolean
-    + hashCode() : int
+    + {final} equals(obj : Object) : boolean
+    + {final} hashCode() : int
     + toString() : String
 }
 
@@ -70,9 +70,9 @@ ElectricCar ..> ParkingTariff : uses
 
 note top of Vehicle
   Identity defined by registrationNumber.
-  equals() and hashCode() are implemented here
-  and inherited by all subclasses.
-  getRegistrationNumber() is marked {final}.
+  equals() and hashCode() are declared {final}
+  to protect the identity contract across all subclasses.
+  Accessors are also marked {final}.
 end note
 
 note right of ParkingTariff

@@ -56,8 +56,8 @@ public final class ParkingTariff {
         if (durationMinutes == 0) {
             return 0;
         }
-        // Integer ceiling arithmetic without floating-point precision loss
-        return (durationMinutes + (MINUTES_PER_HOUR - 1)) / MINUTES_PER_HOUR;
+        // Overflow-safe ceiling arithmetic: avoids arithmetic overflow when durationMinutes is large (e.g. Long.MAX_VALUE)
+        return 1 + (durationMinutes - 1) / MINUTES_PER_HOUR;
     }
 }
 
