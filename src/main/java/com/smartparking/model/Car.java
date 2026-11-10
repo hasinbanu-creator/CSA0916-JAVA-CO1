@@ -44,9 +44,4 @@ public class Car extends Vehicle {
     public String getDetailedInfo() {
         return super.getVehicleInfo() + ", Seating Capacity: " + seatingCapacity;
     }
-
-    @Override
-    public String toString() {
-        return "Car[" + super.toString() + ", seats=" + seatingCapacity + "]";
-    }
 }

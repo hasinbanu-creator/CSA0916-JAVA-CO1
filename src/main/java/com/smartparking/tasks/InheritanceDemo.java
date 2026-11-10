@@ -17,25 +17,18 @@ import com.smartparking.model.Vehicle;
 public class InheritanceDemo {
 
     /**
-     * Helper to trace constructor execution steps when instantiating an ElectricCar.
+     * Helper subclass used exclusively to demonstrate constructor execution order.
+     * Inherits from ElectricCar to trace the completion of superclass constructors
+     * and the execution of its own subclass constructor body.
      */
     public static class TracedElectricCar extends ElectricCar {
         public TracedElectricCar(String regNo, double batteryCapacity) {
-            super(traceStep("2. Subclass constructor invokes super(regNo, \"ELECTRIC_CAR\")", regNo), batteryCapacity);
-            System.out.println("   [Trace Step 4] Returning to ElectricCar constructor body:");
-            System.out.println("      - Subclass field 'batteryCapacityKWh' initialized to: " + getBatteryCapacityKWh());
-            System.out.println("      - Subclass field 'currentBatteryLevelKWh' initialized to: " + getCurrentBatteryLevelKWh());
-            System.out.println("      - Subclass field 'isCharging' initialized to: " + isCharging());
-            System.out.println("      - Object fully constructed on heap.");
-        }
-
-        private static String traceStep(String stepDescription, String value) {
-            System.out.println("   [Trace Step 1] " + stepDescription);
-            System.out.println("   [Trace Step 2] Calling Vehicle superclass constructor: Vehicle(\"" + value + "\", \"ELECTRIC_CAR\")");
-            System.out.println("      - java.lang.Object constructor finishes");
-            System.out.println("      - Vehicle fields 'registrationNumber' and 'vehicleType' assigned");
-            System.out.println("   [Trace Step 3] Vehicle constructor completes execution");
-            return value;
+            super(regNo, batteryCapacity);
+            System.out.println("   [Step 5] TracedElectricCar constructor body executes:");
+            System.out.println("      - super(regNo, batteryCapacity) has completed.");
+            System.out.println("      - Inherited Vehicle state: regNo=" + getRegistrationNumber() + ", type=" + getVehicleType());
+            System.out.println("      - Inherited ElectricCar state: battery=" + getBatteryCapacityKWh() + " kWh, level=" + getCurrentBatteryLevelKWh() + " kWh, charging=" + isCharging());
+            System.out.println("      - TracedElectricCar constructor body finishes.");
         }
     }
 
@@ -86,13 +79,24 @@ public class InheritanceDemo {
         ev.stopCharging();
         System.out.println("Disconnecting EV: " + ev.getDetailedInfo());
 
-        // 3. Step-by-Step Constructor Execution Trace for ElectricCar
+        // 4. Step-by-Step Constructor Execution Trace for ElectricCar
         System.out.println("\n--- 4. Constructor Execution Order Trace for new ElectricCar(...) ---");
-        System.out.println("Executing: new TracedElectricCar(\"TN99EV8888\", 75.0);");
+        System.out.println("Chronological order enforced by Java language specification:");
+        System.out.println("   [Step 1] Memory Allocation & Default Field Initialization:");
+        System.out.println("            Heap memory allocated. All fields initialized to binary defaults");
+        System.out.println("            (registrationNumber=null, vehicleType=null, batteryCapacityKWh=0.0, etc.).");
+        System.out.println("   [Step 2] java.lang.Object Constructor:");
+        System.out.println("            Vehicle constructor delegates to super() (Object constructor), which finishes.");
+        System.out.println("   [Step 3] Vehicle Instance Field Initialization & Constructor Body:");
+        System.out.println("            Instance initializers run, parameters are validated, and");
+        System.out.println("            registrationNumber=\"TN99EV8888\", vehicleType=\"ELECTRIC_CAR\" are assigned.");
+        System.out.println("   [Step 4] ElectricCar Instance Field Initialization & Constructor Body:");
+        System.out.println("            Subclass instance initializers run, battery parameters are validated,");
+        System.out.println("            batteryCapacityKWh=75.0, currentBatteryLevelKWh=37.5, isCharging=false are assigned.");
+        System.out.println("\nExecuting: new TracedElectricCar(\"TN99EV8888\", 75.0);");
         TracedElectricCar tracedEv = new TracedElectricCar("TN99EV8888", 75.0);
         System.out.println("\nFinal Initialized Object State:");
-        System.out.println("  " + tracedEv);
+        System.out.println("  " + tracedEv.getDetailedInfo());
         System.out.println("================================================================================");
     }
 }
-

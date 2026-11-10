@@ -99,12 +99,5 @@ public class ElectricCar extends Vehicle {
                 ", Battery: " + currentBatteryLevelKWh + "/" + batteryCapacityKWh + " kWh" +
                 ", Charging: " + (isCharging ? "Yes" : "No");
     }
-
-    @Override
-    public String toString() {
-        return "ElectricCar[" + super.toString() +
-                ", battery=" + currentBatteryLevelKWh + "/" + batteryCapacityKWh + "kWh" +
-                ", charging=" + isCharging + "]";
-    }
 }
 

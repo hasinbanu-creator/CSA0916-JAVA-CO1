@@ -51,9 +51,12 @@ In Task 6, the concrete class is named `ElectricCar`:
 
 ### 1.4 Inherited vs. Subclass-Specific State and Behaviour
 
+> [!NOTE]
+> In accordance with the assignment progression, method overrides for `toString()`, `equals()`, and `hashCode()` are explicitly reserved for **Task 7**. Subclasses in Task 6 focus strictly on constructor chaining, state specialization, and domain behaviour.
+
 | Class | Role | Inherited Members (from `Vehicle`) | Subclass-Specific Additions | Responsibility |
 | :--- | :--- | :--- | :--- | :--- |
-| **`Vehicle`** | Abstract Superclass | *N/A (Root of hierarchy)* | - `registrationNumber: String`<br>- `vehicleType: String`<br>- `getRegistrationNumber()`<br>- `getVehicleType()`<br>- `getVehicleInfo()`<br>- `toString()` | Encapsulates immutable identity and category invariants for all campus vehicles. |
+| **`Vehicle`** | Abstract Superclass | *N/A (Root of hierarchy)* | - `registrationNumber: String`<br>- `vehicleType: String`<br>- `getRegistrationNumber()`<br>- `getVehicleType()`<br>- `getVehicleInfo()` | Encapsulates immutable identity and category invariants for all campus vehicles. |
 | **`TwoWheeler`** | Concrete Subclass | - `registrationNumber`<br>- `vehicleType`<br>- `getRegistrationNumber()`<br>- `getVehicleType()`<br>- `getVehicleInfo()` | - `hasHelmetStorage: boolean`<br>- `hasHelmetStorage()`<br>- `getDetailedInfo()` | Models motorcycles and mopeds; tracks helmet boot/box storage availability. |
 | **`Car`** | Concrete Subclass | - `registrationNumber`<br>- `vehicleType`<br>- `getRegistrationNumber()`<br>- `getVehicleType()`<br>- `getVehicleInfo()` | - `seatingCapacity: int`<br>- `getSeatingCapacity()`<br>- `getDetailedInfo()` | Models passenger automobiles; tracks verified passenger seating capacity. |
 | **`ElectricCar`** | Concrete Subclass | - `registrationNumber`<br>- `vehicleType`<br>- `getRegistrationNumber()`<br>- `getVehicleType()`<br>- `getVehicleInfo()` | - `batteryCapacityKWh: double`<br>- `currentBatteryLevelKWh: double`<br>- `isCharging: boolean`<br>- `startCharging()`<br>- `stopCharging()`<br>- `charge(energyKWh)`<br>- `getDetailedInfo()` | Models electric cars; manages battery capacity, current state-of-charge, and charging connections. |
@@ -126,59 +129,63 @@ When the runtime statement:
 ElectricCar ev = new ElectricCar("TN11EF9012", 60.0, 30.0);
 ```
 
-is executed, the JVM follows a strict initialization sequence:
+is executed, the Java Virtual Machine adheres to a strict, deterministic initialization sequence defined by the Java Language Specification (JLS §12.5):
 
 ```
-[ Step 1: Memory Allocation ]
-  ├── Heap allocates memory block for ElectricCar
-  └── All instance fields initialized to binary defaults:
+[ Step 1: Memory Allocation & Default Initialization ]
+  ├── Heap allocates memory block for the ElectricCar object instance
+  └── All instance fields (from Object, Vehicle, down to ElectricCar) are zeroed:
         registrationNumber = null
         vehicleType = null
         batteryCapacityKWh = 0.0
         currentBatteryLevelKWh = 0.0
         isCharging = false
 
-[ Step 2: Stack Frame Activation ]
-  └── ElectricCar(String, double, double) frame pushed onto stack
+[ Step 2: ElectricCar Constructor Invocation ]
+  └── ElectricCar("TN11EF9012", 60.0, 30.0) constructor pushed onto thread stack
+        └── First statement delegates immediately via super("TN11EF9012", "ELECTRIC_CAR")
 
-[ Step 3: Superclass Chaining via super(...) ]
-  └── super("TN11EF9012", "ELECTRIC_CAR") invoked
-        └── Vehicle(String, String) frame pushed onto stack
-              └── java.lang.Object() constructor runs and completes
+[ Step 3: Vehicle Constructor Invocation & Object Constructor ]
+  └── Vehicle("TN11EF9012", "ELECTRIC_CAR") pushed onto stack
+        └── Vehicle constructor delegates implicitly via super() to java.lang.Object()
+              └── java.lang.Object constructor executes and completes
 
-[ Step 4: Superclass Initialization ]
-  ├── Parameter validation: registrationNumber and vehicleType validated
-  ├── Fields assigned:
-  │     registrationNumber = "TN11EF9012"
-  │     vehicleType = "ELECTRIC_CAR"
-  └── Vehicle constructor frame pops
+[ Step 4: Vehicle Instance Initialization & Constructor Body ]
+  ├── Vehicle instance field initializers execute (if any)
+  ├── Vehicle constructor body executes:
+  │     - Validates non-null / non-blank inputs
+  │     - Assigns this.registrationNumber = "TN11EF9012"
+  │     - Assigns this.vehicleType = "ELECTRIC_CAR"
+  └── Vehicle constructor finishes and pops from stack
 
-[ Step 5: Subclass Initialization ]
-  ├── Subclass parameter validation: batteryCapacityKWh and initialBatteryLevelKWh validated
-  ├── Subclass fields assigned:
-  │     batteryCapacityKWh = 60.0
-  │     currentBatteryLevelKWh = 30.0
-  │     isCharging = false
-  └── ElectricCar constructor frame pops
+[ Step 5: ElectricCar Instance Initialization & Constructor Body ]
+  ├── ElectricCar instance field initializers execute:
+  │     - isCharging = false (default field initialization)
+  ├── ElectricCar constructor body executes:
+  │     - Validates batteryCapacityKWh > 0 and 0 <= initialBatteryLevel <= capacity
+  │     - Assigns this.batteryCapacityKWh = 60.0
+  │     - Assigns this.currentBatteryLevelKWh = 30.0
+  └── ElectricCar constructor finishes and pops from stack
 
-[ Step 6: Reference Assignment ]
-  └── Local reference 'ev' points to the fully initialized heap object
+[ Step 6: Object Reference Returned ]
+  └── Fully initialized ElectricCar reference is assigned to local variable 'ev'
 ```
 
 ### Detailed Execution Trace Table
 
-| Phase | Call Stack / Action | Fields State in Heap | Description |
+| Phase | Action / Call Stack | Field State in Heap | Description |
 | :---: | :--- | :--- | :--- |
-| **1** | `new ElectricCar(...)` | `regNo=null`, `type=null`, `cap=0.0`, `level=0.0`, `charging=false` | Heap memory allocated for the new object. All primitive and reference fields zeroed. |
-| **2** | Push `ElectricCar(...)` | *(same as above)* | Parameter values `"TN11EF9012"`, `60.0`, `30.0` placed on stack frame. |
-| **3** | Push `Vehicle(...)` via `super(...)` | *(same as above)* | Delegates to superclass constructor with `"TN11EF9012"` and `"ELECTRIC_CAR"`. |
-| **4** | Push `Object()` via implicit `super()` | *(same as above)* | Root `Object` constructor initializes fundamental JVM object headers and monitors. |
-| **5** | Pop `Object()` | *(same as above)* | `Object` constructor returns control to `Vehicle`. |
-| **6** | Execute `Vehicle` Body | `regNo="TN11EF9012"`, `type="ELECTRIC_CAR"` | Non-null validation passes; `this.registrationNumber` and `this.vehicleType` assigned. |
-| **7** | Pop `Vehicle(...)` | *(same as above)* | `Vehicle` constructor completes and returns control to `ElectricCar`. |
-| **8** | Execute `ElectricCar` Body | `cap=60.0`, `level=30.0`, `charging=false` | Battery validation passes; `this.batteryCapacityKWh`, `currentBatteryLevelKWh`, and `isCharging` assigned. |
-| **9** | Pop `ElectricCar(...)` | *(same as above)* | Constructor completes. Final initialized object reference returned. |
-| **10** | Assignment to `ev` | Final object ready | Variable `ev` in caller's stack frame points to the new `ElectricCar` instance. |
+| **1** | Heap Allocation | `regNo=null`, `type=null`, `cap=0.0`, `level=0.0`, `charging=false` | Heap allocates memory for the instance. All fields across the entire object layout are set to binary zero/null defaults. |
+| **2** | `ElectricCar(...)` Invocation | *(same as above)* | Constructor receives parameters (`"TN11EF9012"`, `60.0`, `30.0`). First statement `super(...)` is evaluated. |
+| **3** | `Vehicle(...)` Invocation | *(same as above)* | Superclass constructor receives (`"TN11EF9012"`, `"ELECTRIC_CAR"`). Delegates to `Object()` via implicit `super()`. |
+| **4** | `Object()` Execution | *(same as above)* | Top of the object hierarchy executes; initializes JVM internal object headers and monitors. |
+| **5** | `Vehicle` Body Execution | `regNo="TN11EF9012"`, `type="ELECTRIC_CAR"`, `cap=0.0`, `level=0.0`, `charging=false` | Parameter validation passes; `this.registrationNumber` and `this.vehicleType` are assigned. Control returns to `ElectricCar`. |
+| **6** | `ElectricCar` Field Initializers | `regNo="TN11EF9012"`, `type="ELECTRIC_CAR"`, `cap=0.0`, `level=0.0`, `charging=false` | Instance variable initializers execute in textual declaration order (`this.isCharging = false`). |
+| **7** | `ElectricCar` Body Execution | `regNo="TN11EF9012"`, `type="ELECTRIC_CAR"`, `cap=60.0`, `level=30.0`, `charging=false` | Subclass constructor body validates battery parameters and assigns `this.batteryCapacityKWh` and `this.currentBatteryLevelKWh`. |
+| **8** | Completion | Final initialized object | `ElectricCar` constructor body completes; reference to the fully constructed object is returned. |
+
+> [!NOTE]
+> **Tracing Subclasses:** If a diagnostic helper subclass (such as `TracedElectricCar`) is used to observe constructor execution, its constructor body runs strictly **after** `ElectricCar`'s constructor body has completed. The `TracedElectricCar` constructor body must never be confused with the `ElectricCar` constructor body.
 
 ---
 
@@ -201,7 +208,6 @@ classDiagram
         +getRegistrationNumber() String
         +getVehicleType() String
         +getVehicleInfo() String
-        +toString() String
     }
 
     class TwoWheeler {
@@ -209,7 +215,6 @@ classDiagram
         +TwoWheeler(registrationNumber: String, hasHelmetStorage: boolean)
         +hasHelmetStorage() boolean
         +getDetailedInfo() String
-        +toString() String
     }
 
     class Car {
@@ -217,7 +222,6 @@ classDiagram
         +Car(registrationNumber: String, seatingCapacity: int)
         +getSeatingCapacity() int
         +getDetailedInfo() String
-        +toString() String
     }
 
     class ElectricCar {
@@ -233,7 +237,6 @@ classDiagram
         +stopCharging() void
         +charge(energyKWh: double) void
         +getDetailedInfo() String
-        +toString() String
     }
 
     TwoWheeler --|> Vehicle : extends
@@ -334,4 +337,3 @@ Let:
 
 > [!TIP]
 > **Conclusion:** For a smart-parking system where vehicles possess distinct physical properties and hardware requirements (such as electric vehicles needing charging slots and tracking battery levels, while two-wheelers need helmet storage), **Hierarchical Inheritance** is the superior object-oriented architecture.
-

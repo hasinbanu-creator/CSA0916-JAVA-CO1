@@ -41,9 +41,4 @@ public class TwoWheeler extends Vehicle {
     public String getDetailedInfo() {
         return super.getVehicleInfo() + ", Helmet Storage: " + (hasHelmetStorage ? "Yes" : "No");
     }
-
-    @Override
-    public String toString() {
-        return "TwoWheeler[" + super.toString() + ", helmetStorage=" + hasHelmetStorage + "]";
-    }
 }

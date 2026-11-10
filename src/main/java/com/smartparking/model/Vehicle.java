@@ -59,9 +59,4 @@ public abstract class Vehicle {
     public String getVehicleInfo() {
         return "Registration No: " + registrationNumber + ", Type: " + vehicleType;
     }
-
-    @Override
-    public String toString() {
-        return "Vehicle[regNo=" + registrationNumber + ", type=" + vehicleType + "]";
-    }
 }

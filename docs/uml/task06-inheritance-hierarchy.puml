@@ -10,7 +10,6 @@ abstract class Vehicle {
     + getRegistrationNumber() : String
     + getVehicleType() : String
     + getVehicleInfo() : String
-    + toString() : String
 }
 
 class TwoWheeler {
@@ -18,7 +17,6 @@ class TwoWheeler {
     + TwoWheeler(registrationNumber : String, hasHelmetStorage : boolean)
     + hasHelmetStorage() : boolean
     + getDetailedInfo() : String
-    + toString() : String
 }
 
 class Car {
@@ -26,7 +24,6 @@ class Car {
     + Car(registrationNumber : String, seatingCapacity : int)
     + getSeatingCapacity() : int
     + getDetailedInfo() : String
-    + toString() : String
 }
 
 class ElectricCar {
@@ -42,7 +39,6 @@ class ElectricCar {
     + stopCharging() : void
     + charge(energyKWh : double) : void
     + getDetailedInfo() : String
-    + toString() : String
 }
 
 Vehicle <|-- TwoWheeler : extends
@@ -61,4 +57,3 @@ note bottom of ElectricCar
 end note
 
 @enduml
-
