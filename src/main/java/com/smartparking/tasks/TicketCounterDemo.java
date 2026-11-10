@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
  * Task 5: Static Members and Object Life Cycle Demonstration.
  *
  * Demonstrates:
- * 1. A static ticket counter shared across multiple facility/gate instances.
+ * 1. A static ticket counter shared across multiple facility/gate instances within
+ *    the lifetime of the same JVM and ClassLoader.
  * 2. Static methods and static initialization blocks with justified purpose.
  * 3. The alternative design comparing static counters with facility-instance counters.
  * 4. Java pass-by-value semantics for object references (mutation vs. reassignment).
@@ -16,7 +17,8 @@ import java.time.LocalDateTime;
  */
 public class TicketCounterDemo {
 
-    // Class-level shared state: belongs to TicketCounterDemo, not individual instances
+    // Class-level shared state: belongs to the class and is shared among instances
+    // loaded by the same ClassLoader. Exact physical storage is JVM-implementation-dependent.
     private static int sharedTicketCounter;
     private static final String DEFAULT_PREFIX;
 
@@ -33,6 +35,7 @@ public class TicketCounterDemo {
     /**
      * Static utility method to generate the next unique sequential ticket ID.
      * Increments the shared class counter and formats the identifier.
+     * Guarantees sequence coordination within the current JVM process.
      *
      * @return uniquely generated ticket identifier string
      */
@@ -51,12 +54,13 @@ public class TicketCounterDemo {
     }
 
     /**
-     * Resets the shared counter to a baseline value.
-     * Useful for isolated unit testing scenarios.
+     * Package-private helper to reset the shared counter strictly for unit test isolation.
+     * Not exposed in the public production API to prevent unauthorized counter resets
+     * and sequence collisions in production code.
      *
      * @param baseline starting sequence value
      */
-    public static synchronized void resetSharedCounter(int baseline) {
+    static synchronized void resetSharedCounterForTesting(int baseline) {
         sharedTicketCounter = baseline;
     }
 
@@ -130,7 +134,7 @@ public class TicketCounterDemo {
 
         /**
          * Primary Design: Issues a ticket using the shared static counter.
-         * Guarantees unique ticket IDs across all gates.
+         * Guarantees unique ticket IDs across all gates in the current JVM.
          */
         public ParkingTicket issueTicketShared(String regNo, String vehicleType, int floor, int slot) {
             String ticketId = TicketCounterDemo.generateNextTicketId();
@@ -166,7 +170,7 @@ public class TicketCounterDemo {
         System.out.println("Ticket 1 (North Gate): ID = " + t1.getTicketNumber() + ", Counter = " + getSharedTicketCounter());
         System.out.println("Ticket 2 (South Gate): ID = " + t2.getTicketNumber() + ", Counter = " + getSharedTicketCounter());
         System.out.println("Ticket 3 (North Gate): ID = " + t3.getTicketNumber() + ", Counter = " + getSharedTicketCounter());
-        System.out.println("Notice: Both distinct gate instances share the single static counter sequence.");
+        System.out.println("Notice: Both distinct gate instances share the single static counter sequence in this JVM.");
 
         // 2. Alternative Concept: Facility-Instance Counter
         System.out.println("\n--- 2. Alternative: Facility-Instance Counter ---");
@@ -205,4 +209,3 @@ public class TicketCounterDemo {
         System.out.println("Variable 't3' set to null. The heap object is now unreferenced and eligible for GC when JVM GC runs.");
     }
 }
-

@@ -19,7 +19,8 @@ class TicketCounterDemoTest {
 
     @BeforeEach
     void setUp() {
-        TicketCounterDemo.resetSharedCounter(1000);
+        // Uses package-private test helper to guarantee clean test isolation
+        TicketCounterDemo.resetSharedCounterForTesting(1000);
     }
 
     @Test
@@ -97,4 +98,3 @@ class TicketCounterDemoTest {
         assertEquals(original.getVehicleRegNo(), archival.getVehicleRegNo());
     }
 }
-

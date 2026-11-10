@@ -8,12 +8,14 @@ In Java, class definitions govern two distinct categories of state: **instance v
 
 ```
 +-----------------------------------------------------------------------------------+
-| JVM Metaspace / Method Area (Loaded Classes)                                      |
-|   class TicketCounterDemo / ParkingTicket                                         |
+| Loaded Class Representation (ClassLoader Scope)                                   |
+|   Class: TicketCounterDemo / ParkingTicket                                        |
 |     +-----------------------------------------------------------------------+     |
 |     | static int sharedTicketCounter = 1003;                                |     |
 |     | static final String DEFAULT_PREFIX = "TKT-";                          |     |
 |     +-----------------------------------------------------------------------+     |
+|     (Shared among all instances loaded by the same ClassLoader;                   |
+|      physical storage location is JVM-implementation-dependent)                   |
 +-----------------------------------------------------------------------------------+
                                       ^
                                       | (Shared Class State)
@@ -33,16 +35,22 @@ In Java, class definitions govern two distinct categories of state: **instance v
   - Examples in the smart-parking domain: `vehicleRegNo`, `vehicleType`, `floorNumber`, `slotNumber`, `entryTime`, `exitTime`, and `isActive`. Each parked car has its own registration number, entry timestamp, and physical parking slot. If these were made class-level, every vehicle entry would overwrite the data of previously parked vehicles.
 
 - **Static Variables (Class-Level State):**
-  Static fields are declared with the `static` keyword and belong to the class as a whole, rather than to any individual object. The JVM allocates memory for static fields once when the class is loaded into memory (in the Metaspace / Method Area). All instances of the class share this single memory location.
-  - Examples: A sequence counter for issuing monotonically increasing ticket identifiers, shared configuration constants (e.g., ticket prefixes), or system-wide counters.
+  Static fields are declared with the `static` keyword and belong to the class as a whole rather than to any individual object. They are shared among all instances of the class that are loaded by the same `ClassLoader`.
+  - Examples: A sequence counter for generating sequential ticket identifiers within a running application, shared configuration constants (e.g., ticket prefixes), or system-wide counters.
 
-### 1.2 Demonstration of a Static Ticket Counter
+### 1.2 Physical Storage of Static Fields in the JVM
 
-To guarantee that each newly issued ticket receives a strictly increasing, non-reused identifier, a static counter is maintained at the class level:
+The Java Virtual Machine Specification defines the *logical* behavior of static fields (shared across instances loaded by the same ClassLoader), but leaves their *physical* memory location to the specific JVM implementation:
+- **Logical Model:** Static fields exist as part of the class structure rather than within individual heap allocations of objects created by `new ClassName()`.
+- **Implementation Nuance:** It is a common misconception to assume that all static fields are physically stored in Metaspace. In modern OpenJDK HotSpot JVMs (Java 8 and later), class metadata resides in native memory (Metaspace), whereas static variables are actually stored in the mirror `java.lang.Class` object that resides on the **Java Heap**. Other JVM implementations may organize memory differently. Therefore, the exact physical memory location of static fields is implementation-dependent.
+
+### 1.3 Demonstration of a Static Ticket Counter
+
+To coordinate sequential ticket numbering across the application, a static counter is maintained at the class level:
 
 ```java
 public class TicketCounterDemo {
-    // Shared class-level variable: exactly one copy exists across all instances
+    // Shared class-level variable: shared among all instances in this ClassLoader
     private static int sharedTicketCounter;
     private static final String DEFAULT_PREFIX;
 
@@ -58,9 +66,9 @@ public class TicketCounterDemo {
 }
 ```
 
-When tickets are issued from anywhere in the application, each call to `generateNextTicketId()` increments the exact same counter, yielding `TKT-1001`, `TKT-1002`, `TKT-1003`, and so forth.
+When tickets are issued within the application, each call to `generateNextTicketId()` increments the shared counter, producing `TKT-1001`, `TKT-1002`, `TKT-1003`, and so forth.
 
-### 1.3 Why an Instance Counter Inside `ParkingTicket` Would Fail
+### 1.4 Why an Instance Counter Inside `ParkingTicket` Would Fail
 
 If the counter were declared as an instance variable inside `ParkingTicket`:
 
@@ -85,7 +93,7 @@ When `new FlawedParkingTicket(...)` executes:
 
 Every single ticket issued would receive the identical identifier `TKT-1001`. This causes immediate identity collisions and directly violates **Business Rule 2 ("A ticket number must never be reused")**. An instance variable cannot coordinate a sequence across multiple instances because each instance is completely isolated from all other instances on the heap.
 
-### 1.4 Total Occupancy: Facility-Level vs. Campus-Wide System State
+### 1.5 Total Occupancy: Facility-Level vs. Campus-Wide System State
 
 The concept of "total occupancy" must be evaluated based on the boundary of the entity:
 
@@ -94,11 +102,14 @@ The concept of "total occupancy" must be evaluated based on the boundary of the 
 | **Individual Facility Occupancy** | **Instance Variable** in `ParkingFacility` | Each physical parking facility (e.g., North Multi-Level Lot vs. South Surface Lot) has its own structural layout, slot capacity, and active vehicles. Facility A might be 95% full while Facility B is 20% full. Storing this as a static variable inside `ParkingFacility` would erroneously merge the counts of all buildings into one number, losing per-facility tracking. |
 | **Campus-Wide Aggregated Occupancy** | **System Aggregation** or Class-Level Coordinator | If campus administration requires a single view of all parked vehicles across all facilities, this represents global system state. It can be computed dynamically by summing the instance occupancies ($\sum_{i=1}^k \text{facility}_i.\text{getOccupancy()}$) or tracked via a centralized campus coordinator. |
 
-### 1.5 Consequences of Multiple Facility Instances
+### 1.6 Consequences of Multiple Facility Instances & Scope of Ticket Uniqueness
 
 When the university operates multiple facility instances (such as a North Gate facility and a South Gate facility):
-- If the ticket counter is a **static variable** shared across facilities, both gates draw from the same sequence. North Gate issues `TKT-1001`, South Gate issues `TKT-1002`, North Gate issues `TKT-1003`.
-- If the ticket counter is an **instance variable** inside each facility object, North Gate maintains its own sequence (1, 2, 3...) and South Gate maintains its own sequence (1, 2, 3...). The architectural trade-offs of both options are formally analysed in Section 5.
+- If the ticket counter is a **static variable**, all facility objects loaded by the same ClassLoader share one counter. North Gate issues `TKT-1001`, South Gate issues `TKT-1002`, North Gate issues `TKT-1003`.
+- If the ticket counter is an **instance variable** inside each facility object, North Gate maintains its own sequence (1, 2, 3...) and South Gate maintains its own sequence (1, 2, 3...).
+
+> [!NOTE]
+> **Scope of Uniqueness:** A static counter guarantees sequential, unique ticket IDs **only within the lifetime of a single running JVM process and ClassLoader**. It does *not* by itself guarantee uniqueness across application restarts (where memory state is reset unless backed by persistence), across multiple JVM processes running on different servers, or in distributed deployments. In enterprise systems, cross-restart and distributed uniqueness requires persistent sequence generators, databases, or coordinated UUIDs.
 
 ---
 
@@ -111,7 +122,7 @@ A method should be declared `static` when its execution does not require access 
 Appropriate uses in the smart-parking system include:
 1. **Sequence Generation / Factory Helpers:** Methods like `generateNextTicketId()` that only access static variables.
 2. **Pure Mathematical / Conversion Utilities:** Methods that perform calculations strictly based on arguments passed to them (e.g., converting minutes to fractional hours, formatting currency).
-3. **Class-Level Inspection / Maintenance:** Methods like `getSharedTicketCounter()` and `resetSharedCounter()` to query or reset global class state.
+3. **Class-Level Inspection:** Methods like `getSharedTicketCounter()` to query global class state.
 
 Constraints of static methods:
 - A static method has **no `this` reference**.
@@ -123,7 +134,7 @@ Constraints of static methods:
 ```java
 /**
  * Static utility method to generate unique sequential ticket identifiers.
- * Synchronized to ensure atomic increments across concurrent operations.
+ * Synchronized to ensure atomic increments across concurrent operations in the JVM.
  */
 public static synchronized String generateNextTicketId() {
     sharedTicketCounter++;
@@ -138,6 +149,9 @@ public static synchronized int getSharedTicketCounter() {
 }
 ```
 
+> [!WARNING]
+> **Production API Integrity:** Production code should **not** expose a public method to reset the ticket sequence (such as a public `resetSharedCounter()`). Exposing such a method allows arbitrary code to reset the sequence back to a previously used value, leading to ticket number reuse and violating Business Rule 2. If test suites require counter resetting for test isolation, an appropriately restricted strategy—such as package-private test helpers or dedicated test fixtures—must be employed.
+
 ### 2.3 Static Initialization Blocks (`static { ... }`)
 
 A **static initialization block** is a block of code enclosed in `static { ... }` inside a class body. It executes **exactly once**, when the class is first loaded and initialized by the JVM ClassLoader, before:
@@ -146,9 +160,9 @@ A **static initialization block** is a block of code enclosed in `static { ... }
 - Any static variable of the class is read.
 
 #### When Static Blocks Are Useful
-Static blocks are essential when static variables require complex, multi-step initialization, such as:
+Static blocks are useful when static variables require multi-step initialization, such as:
 - Initializing constants from external environment variables or configuration files.
-- Computing pre-calculated lookup tables (e.g., trigonometric or fee-rate lookup tables).
+- Computing pre-calculated lookup tables (e.g., fee-rate lookup structures).
 - Handling checked exceptions during class initialization (which cannot be done in inline static field declarations).
 
 ```java
@@ -158,7 +172,6 @@ public class TicketCounterDemo {
 
     // Static Initialization Block
     static {
-        // Enforces baseline prefix and initial sequence offset upon class loading
         DEFAULT_PREFIX = "TKT-";
         sharedTicketCounter = 1000;
     }
@@ -171,14 +184,12 @@ public class TicketCounterDemo {
 | Dimension | Static Member (`class`) | Instance Member (`object`) |
 | :--- | :--- | :--- |
 | **Declaration** | Marked with `static` keyword | Declared without `static` |
-| **Memory Allocation** | Metaspace / Method Area (loaded once) | JVM Heap (allocated per `new`) |
+| **Belongs To** | The class (shared among instances in the same ClassLoader) | An individual object instance |
+| **Physical Storage** | JVM-implementation-dependent (e.g. `Class` object on Heap) | Allocated on the JVM Heap per `new` |
 | **Lifetime** | Loaded when class is initialized; persists until class is unloaded | Created on `new`; destroyed when garbage-collected |
 | **Invocation** | `ClassName.member` (e.g., `TicketCounterDemo.getSharedTicketCounter()`) | `objectReference.member` (e.g., `ticket.getTicketNumber()`) |
 | **Receiver Reference** | No `this` reference exists | Bound to the executing object instance (`this`) |
 | **Copies in Memory** | Exactly **1** copy per JVM ClassLoader | **$n$** copies for $n$ instantiated objects |
-
-> [!NOTE]
-> Do not introduce unnecessary static methods or static state. Business entities such as `ParkingTicket`, `ParkingSlot`, and `Vehicle` must remain distinct objects on the heap. Only shared sequences, global constants, and stateless utility functions should be declared `static`.
 
 ---
 
@@ -217,7 +228,7 @@ If there exists any path of strong references from any GC Root to the `ParkingTi
 
 ### 3.3 Distinguishing "Session Completed" from "Eligible for Garbage Collection"
 
-A common misconception among beginner Java programmers is that closing a ticket or marking it inactive removes it from memory:
+A critical distinction must be drawn between an object's domain state and its JVM reachability:
 
 ```java
 // Step 1: Vehicle departs and ticket is closed
@@ -225,7 +236,7 @@ ParkingTicket t1 = northGate.issueTicketShared("TN01AA1111", "CAR", 0, 1);
 t1.closeTicket(LocalDateTime.now()); // State change: isActive = false
 
 // IS t1 ELIGIBLE FOR GARBAGE COLLECTION HERE?
-// ANSWER: NO!
+// ANSWER: ABSOLUTELY NOT!
 ```
 
 - **Domain State Change (`isActive = false`):** The ticket simply reflects that the vehicle has departed and payment has been processed. The reference variable `t1` on the current thread's stack still points directly to the `ParkingTicket` object on the heap. Because it is reachable from a live stack frame, it is **strongly reachable**.
@@ -248,10 +259,7 @@ Garbage collection in Java is **automatic, asynchronous, and non-deterministic**
 
 ### 3.5 Clarification on `System.gc()`
 
-> [!WARNING]
-> Calling `System.gc()` or `Runtime.getRuntime().gc()` does **NOT** guarantee that garbage collection will run.
-
-According to the Java Language Specification (JLS §9.9) and JVM Specification:
+Calling `System.gc()` or `Runtime.getRuntime().gc()` does **NOT** guarantee that garbage collection will run:
 1. `System.gc()` is purely a **hint or suggestion** to the JVM that it might be an opportune time to exert effort toward recycling unused objects.
 2. The JVM is entirely free to ignore this request, defer it, or perform only a partial collection.
 3. In production environments, JVM flags such as `-XX:+DisableExplicitGC` frequently disable `System.gc()` calls entirely to prevent unpredictable stop-the-world pauses.
@@ -267,18 +275,18 @@ According to the Java Language Specification (JLS §9.9) and JVM Specification:
 > **Java is strictly pass-by-value.** There is no pass-by-reference in Java.
 
 When an object reference is passed to a method:
-- The parameter variable receives a **copy of the reference value** (the 32-bit or 64-bit memory pointer address).
+- The parameter variable receives a **copy of the reference value** (the memory pointer/address).
 - Both the caller's variable and the callee's parameter variable hold identical reference values pointing to the **exact same object on the heap**.
 
 ```
 Stack Frame: main()                     JVM Heap
 +--------------------+                  +-----------------------------------------+
-| t1: 0x4A10 --------+----------------->| ParkingTicket Object at 0x4A10          |
+| t1: [ref] ---------+----------------->| ParkingTicket Object                    |
 +--------------------+                  |   ticketNumber = "TKT-1001"             |
                                         |   isActive = true -> mutated to false   |
 Stack Frame: completeParkingSession()   |   exitTime = null -> mutated to now     |
 +--------------------+                  +-----------------------------------------+
-| ticket: 0x4A10 ----+-----------------> (Exact same heap object)
+| ticket: [ref] -----+-----------------> (Exact same heap object)
 +--------------------+
 ```
 
@@ -324,7 +332,7 @@ attemptReferenceReassignment(original, replacement);
 System.out.println(original.getTicketNumber()); // Still "TKT-1001", NOT "TKT-9999"
 ```
 
-If Java had true pass-by-reference (like C++ `&` references or C# `ref`), `original` would have been redirected to `replacement`. Because Java passes the reference *value*, `original` remains unaffected.
+If Java had true pass-by-reference (such as C++ `&` references or C# `ref`), `original` would have been redirected to `replacement`. Because Java passes the reference *value*, `original` remains unaffected.
 
 ### 4.4 Demonstrating Returning an Object Reference
 
@@ -386,7 +394,7 @@ DESIGN B: Per-Facility Instance Counter
 #### Design A: Global Static Counter
 - **Mechanism:** Both `FacilityGate` objects invoke a single shared class-level method `TicketCounterDemo.generateNextTicketId()`.
 - **Output:** North Gate issues `TKT-1001`, South Gate issues `TKT-1002`, North Gate issues `TKT-1003`.
-- **Behavior:** Both facilities contribute to a single, continuous, monotonically increasing sequence across the entire campus.
+- **Behavior:** Both facilities contribute to a single, continuous, monotonically increasing sequence within the running JVM process.
 
 #### Design B: Facility-Instance Counter
 - **Mechanism:** Each `FacilityGate` holds an instance variable `private int instanceTicketCounter`.
@@ -399,15 +407,15 @@ DESIGN B: Per-Facility Instance Counter
 
 The choice between Design A and Design B depends strictly on the **system-wide requirement for ticket number uniqueness**:
 
-1. **If Ticket Numbers Must Be Globally Unique Across the Entire Campus:**
-   - **Design A (Static Counter)** inherently guarantees campus-wide uniqueness without needing to know which facility issued the ticket.
-   - **Design B (Instance Counter)** can only guarantee campus-wide uniqueness if a unique facility identifier prefix (e.g., `"NORTH-"`, `"SOUTH-"`) is prepended to the ticket number. Without such prefixing, North Gate would issue `1` and South Gate would issue `1`, causing a catastrophic duplicate ID collision at campus exit booths.
+1. **If Ticket Numbers Must Be Unique Across the Entire Campus:**
+   - **Design A (Static Counter)** inherently guarantees campus-wide uniqueness within the JVM process without requiring the ticket issuer to know which facility issued the ticket.
+   - **Design B (Instance Counter)** can only guarantee campus-wide uniqueness if a unique facility identifier prefix (e.g., `"NORTH-"`, `"SOUTH-"`) is prepended to the ticket number. Without such prefixing, North Gate would issue `1` and South Gate would issue `1`, causing duplicate ID collisions at campus exit booths.
 
 2. **If Ticket Numbers Only Need to Be Unique Within Each Facility:**
    - **Design B (Instance Counter)** is superior because it fully decouples the two facilities. If North Gate operates at high volume, its counter increments without altering South Gate's sequence.
 
 3. **Multi-Facility Independence & Concurrency:**
-   - A static counter introduces a shared synchronization point between facilities. In multi-threaded environments, every gate must acquire a lock on the static counter. An instance counter isolates gate operations from one another.
+   - A static counter introduces a shared synchronization point between facilities within the JVM. Every gate must coordinate on the static counter. An instance counter isolates gate operations from one another.
 
 ### 5.4 Space Complexity Analysis for $k$ Facilities and $n$ Tickets
 
@@ -417,30 +425,29 @@ Let:
 
 #### 1. Space Used by the Ticket Counter
 
-| Counter Placement | Stored In | Space Complexity | Exact Memory Cost |
+| Counter Placement | Stored In | Space Complexity | Description |
 | :--- | :--- | :---: | :--- |
-| **Static Counter (Design A)** | Metaspace / Class Data | $\mathcal{O}(1)$ | Exactly **1 integer** (4 bytes) allocated once for the class, regardless of how many facilities ($k$) or tickets ($n$) are created. |
-| **Instance Counter (Design B)** | Heap (embedded in each `ParkingFacility` object) | $\mathcal{O}(k)$ | Exactly **$k$ integers** ($4 \times k$ bytes). Each facility instance reserves 4 bytes for its internal counter field. |
+| **Static Counter (Design A)** | Class-level state (loaded once) | $\mathcal{O}(1)$ | Exactly **one shared counter variable** for the class, independent of the number of facilities ($k$) or tickets issued ($n$). |
+| **Instance Counter (Design B)** | Heap (embedded in each facility instance) | $\mathcal{O}(k)$ | Exactly **one counter field per facility instance**, scaling linearly with the number of facility instances ($k$). |
 
-Because the number of parking facilities on a campus is very small ($k \ll n$, typically $k \le 10$), both $\mathcal{O}(1)$ and $\mathcal{O}(k)$ consume negligible memory.
+Because the number of facilities on a campus is small ($k \ll n$), both $\mathcal{O}(1)$ and $\mathcal{O}(k)$ counter structures use minimal storage. The exact byte consumption depends on the underlying JVM architecture and memory layout, but the asymptotic scaling is strictly $\mathcal{O}(1)$ versus $\mathcal{O}(k)$.
 
 #### 2. Space Used by the Ticket Objects ($n$ Tickets)
 
 The tickets themselves must be analysed separately from the counter:
-- Each `ParkingTicket` is an independent object on the heap containing object headers, primitives, and object references (`ticketNumber`, `vehicleRegNo`, `vehicleType`, `entryTime`, `exitTime`, `floorNumber`, `slotNumber`, `isActive`).
+- Each `ParkingTicket` is an independent object allocated on the heap containing object headers, primitive fields, and object references (`ticketNumber`, `vehicleRegNo`, `vehicleType`, `entryTime`, `exitTime`, `floorNumber`, `slotNumber`, `isActive`).
 - Storing $n$ tickets requires $\mathcal{O}(n)$ total heap memory:
-  $$\text{Memory}_{\text{tickets}} = n \times S_{\text{ticket}} = \mathcal{O}(n)$$
-  where $S_{\text{ticket}}$ is the memory footprint of a single `ParkingTicket` object (typically $\approx 48\text{--}64$ bytes including object header and field alignments on a 64-bit JVM with compressed OOPs).
-- The choice of counter representation ($\mathcal{O}(1)$ vs. $\mathcal{O}(k)$) does **not** alter the $\mathcal{O}(n)$ storage requirement for the $n$ issued tickets.
+  $$\text{Memory}_{\text{tickets}} = \mathcal{O}(n)$$
+- The exact memory footprint per ticket object varies depending on the JVM vendor, 32-bit vs. 64-bit architecture, reference compression (Compressed OOPs), and 8-byte object alignment padding.
+- The choice of counter representation ($\mathcal{O}(1)$ static counter vs. $\mathcal{O}(k)$ facility-instance counters) does **not** alter the linear $\mathcal{O}(n)$ storage requirement for the $n$ issued tickets.
 
 ### 5.5 Trade-Off Summary
 
 | Attribute | Design A: Static Counter | Design B: Facility-Instance Counter |
 | :--- | :--- | :--- |
-| **Counter Memory** | $\mathcal{O}(1)$ (one integer in Metaspace) | $\mathcal{O}(k)$ ($k$ integers on Heap) |
+| **Counter Memory** | $\mathcal{O}(1)$ (one shared counter for the class) | $\mathcal{O}(k)$ ($k$ counters across $k$ facilities) |
 | **Ticket Memory** | $\mathcal{O}(n)$ on Heap | $\mathcal{O}(n)$ on Heap |
-| **Global Uniqueness** | Guaranteed by design | Requires facility prefix to prevent collisions |
+| **JVM Uniqueness** | Guaranteed within the running JVM by design | Requires facility prefix to prevent cross-facility collisions |
 | **Facility Decoupling** | High coupling (shared class state) | Decoupled (each facility is self-contained) |
 | **Concurrency Impact** | Contention on global counter across gates | Contention isolated to individual gate |
-| **Campus Querying** | Immediate total ticket count via static query | Requires summing all $k$ facility counters |
-
+| **Campus Querying** | Immediate total ticket count via static query | Requires aggregating counters across all $k$ facilities |
