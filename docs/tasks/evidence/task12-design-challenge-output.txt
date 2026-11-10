@@ -1,0 +1,66 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ------------< com.smartparking:campus-smart-parking-system >------------
+[INFO] Building Campus Smart-Parking System 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- exec:3.7.0:java (default-cli) @ campus-smart-parking-system ---
+================================================================================
+       CAMPUS SMART-PARKING SYSTEM - TASK 12 DESIGN CHALLENGE DEMO
+================================================================================
+
+--- 1. Initializing Five-Floor Parking Facility (Unequal Jagged Layout) ---
+Facility Configured: 5 Floors, 14 Total Capacity
+  Floor 0: 4 slots
+  Floor 1: 3 slots
+  Floor 2: 3 slots
+  Floor 3: 2 slots
+  Floor 4: 2 slots
+
+--- 2. Electric Bike Parking (Flat Fee Model) ---
+Admitted: EB-CAMPUS-01   | Type: ELECTRIC_BIKE | Ticket: TKT-1001 | Location: Floor 0, Slot 0
+Departed: EB-CAMPUS-01   | Stay: 150 min | Parking: Rs  15.00 (FLAT) | Total: Rs  15.00 | Freed: [0, 0]
+
+--- 3. Delivery Van Time-Window Surge Pricing ---
+Admitted: VAN-PEAK-99    | Window: 10:00 - 12:00 (PEAK)     | Ticket: TKT-1002 | Location: [0, 0]
+Departed: VAN-PEAK-99    | Stay: 120 min | Rate: Rs 60/hr (PEAK)    | Total: Rs 120.00
+Departed: VAN-OFFPK-88   | Stay:  90 min | Rate: Rs 30/hr (OFF-PEAK)| Total: Rs  60.00
+
+--- 4. Visitor One-Day Pass (Exemption & EV Charging Separation) ---
+Admitted: KA02VP101      | Visitor: DR. MEHTA (GUEST SPEAKER) | Pass: PASS-DAY-01 (VALID DATE: 2026-11-10)
+Departed: KA02VP101      | Stay: 360 min | Parking: Rs   0.00 (WAIVED) | Total: Rs   0.00
+Departed: DL03EV202      | Stay: 240 min | Parking: Rs   0.00 (WAIVED) | Charging: Rs 180.00 (15 kWh) | Total: Rs 180.00
+
+--- 5. Allocation Across All Five Unequal Floors ---
+Sequentially admitting vehicles to demonstrate vertical slot distribution:
+  Vehicle CAMPUS-1  allocated to -> Floor 0, Slot 0 (Capacity: 4 slots)
+  Vehicle CAMPUS-2  allocated to -> Floor 0, Slot 1 (Capacity: 4 slots)
+  Vehicle CAMPUS-3  allocated to -> Floor 0, Slot 2 (Capacity: 4 slots)
+  Vehicle CAMPUS-4  allocated to -> Floor 0, Slot 3 (Capacity: 4 slots)
+  Vehicle CAMPUS-5  allocated to -> Floor 1, Slot 0 (Capacity: 3 slots)
+  Vehicle CAMPUS-6  allocated to -> Floor 1, Slot 1 (Capacity: 3 slots)
+  Vehicle CAMPUS-7  allocated to -> Floor 1, Slot 2 (Capacity: 3 slots)
+  Vehicle CAMPUS-8  allocated to -> Floor 2, Slot 0 (Capacity: 3 slots)
+  Vehicle CAMPUS-9  allocated to -> Floor 2, Slot 1 (Capacity: 3 slots)
+  Vehicle CAMPUS-10 allocated to -> Floor 2, Slot 2 (Capacity: 3 slots)
+  Vehicle CAMPUS-11 allocated to -> Floor 3, Slot 0 (Capacity: 2 slots)
+  Vehicle CAMPUS-12 allocated to -> Floor 3, Slot 1 (Capacity: 2 slots)
+  Vehicle CAMPUS-13 allocated to -> Floor 4, Slot 0 (Capacity: 2 slots)
+  Vehicle CAMPUS-14 allocated to -> Floor 4, Slot 1 (Capacity: 2 slots)
+Active Parked Vehicles: 14 / 14 (FACILITY FULL)
+
+--- 6. Slot Release and Reallocation ---
+Releasing slot at Floor 2, Slot 1 occupied by CAMPUS-9...
+Freed Coordinates: Floor 2, Slot 1 | Active Count: 13 / 14
+Admitted: REALLOC-999    | Allocated Location: Floor 2, Slot 1 [SUCCESSFULLY REUSED]
+
+================================================================================
+                  TASK 12 DESIGN CHALLENGE COMPLETE
+================================================================================
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.462 s
+[INFO] Finished at: 2026-11-10T11:18:13+05:30
+[INFO] ------------------------------------------------------------------------

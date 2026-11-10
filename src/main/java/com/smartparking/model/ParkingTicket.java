@@ -23,9 +23,10 @@ public class ParkingTicket {
     private final LocalDateTime entryTime;
     private LocalDateTime exitTime;
     private boolean isActive;
+    private final ParkingPass pass;
 
     /**
-     * Canonical Parameterized Constructor.
+     * Canonical Parameterized Constructor with ParkingPass.
      * Enforces complete initialization and validation of all mandatory fields.
      *
      * @param ticketNumber unique ticket identifier (non-null, non-blank)
@@ -34,9 +35,10 @@ public class ParkingTicket {
      * @param floorNumber  allocated floor index (non-negative)
      * @param slotNumber   allocated slot index (non-negative)
      * @param entryTime    time of entry (non-null)
+     * @param pass         optional access pass associated with this parking session (nullable)
      */
     public ParkingTicket(String ticketNumber, String vehicleRegNo, String vehicleType,
-                         int floorNumber, int slotNumber, LocalDateTime entryTime) {
+                         int floorNumber, int slotNumber, LocalDateTime entryTime, ParkingPass pass) {
         if (ticketNumber == null || ticketNumber.isBlank()) {
             throw new IllegalArgumentException("Ticket number cannot be null or blank.");
         }
@@ -64,6 +66,15 @@ public class ParkingTicket {
         this.entryTime = entryTime;
         this.exitTime = null;
         this.isActive = true;
+        this.pass = pass;
+    }
+
+    /**
+     * Parameterized Constructor without pass. Chains to {@link #ParkingTicket(String, String, String, int, int, LocalDateTime, ParkingPass)}.
+     */
+    public ParkingTicket(String ticketNumber, String vehicleRegNo, String vehicleType,
+                         int floorNumber, int slotNumber, LocalDateTime entryTime) {
+        this(ticketNumber, vehicleRegNo, vehicleType, floorNumber, slotNumber, entryTime, null);
     }
 
     /**
@@ -114,6 +125,7 @@ public class ParkingTicket {
         this.entryTime = source.entryTime;
         this.exitTime = source.exitTime;
         this.isActive = source.isActive;
+        this.pass = source.pass;
     }
 
     /**
@@ -131,7 +143,8 @@ public class ParkingTicket {
              source != null ? source.vehicleType : null,
              source != null ? source.floorNumber : -1,
              source != null ? source.slotNumber : -1,
-             source != null ? source.entryTime : null);
+             source != null ? source.entryTime : null,
+             source != null ? source.pass : null);
         if (source == null) {
             throw new IllegalArgumentException("Source ticket cannot be null.");
         }
@@ -196,6 +209,14 @@ public class ParkingTicket {
 
     public boolean isActive() {
         return isActive;
+    }
+
+    public ParkingPass getPass() {
+        return pass;
+    }
+
+    public boolean hasPass() {
+        return pass != null;
     }
 
     @Override

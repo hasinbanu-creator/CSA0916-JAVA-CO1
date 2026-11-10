@@ -1,0 +1,143 @@
+@startuml task11-integrated-system
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+package "com.smartparking.service" {
+
+    class ParkingManagementService {
+        - {static} TICKET_PREFIX : String = "TKT-"
+        - {static} SUPPORTED_VEHICLE_TYPES : Set<String>
+        - facility : ParkingFacility
+        - activeTickets : ParkingTicket[]
+        - activeVehicles : Vehicle[]
+        - capacity : int
+        - activeCount : int
+        - ticketSequence : int
+        - dailyParkingCollection : double
+        - dailyChargingCollection : double
+        - completedExits : List<ParkingExitSummary>
+        + ParkingManagementService(facility : ParkingFacility, capacity : int)
+        + ParkingManagementService(slotsPerFloor : int[])
+        + {static} isSupportedVehicleType(type : String) : boolean
+        + parkVehicle(vehicle : Vehicle, entryTime : LocalDateTime) : ParkingTicket
+        + parkVehicle(vehicle : Vehicle) : ParkingTicket
+        + processExit(ticketNumber : String, exitTime : LocalDateTime, chargingEnergyKWh : double) : ParkingExitSummary
+        + processExit(ticketNumber : String, exitTime : LocalDateTime) : ParkingExitSummary
+        + processExit(ticketNumber : String) : ParkingExitSummary
+        + processExitByRegistration(regNo : String, exitTime : LocalDateTime, energy : double) : ParkingExitSummary
+        + findActiveTicketByNumber(ticketNumber : String) : ParkingTicket
+        + findActiveTicketByRegistration(regNo : String) : ParkingTicket
+        + findActiveVehicleByTicketNumber(ticketNumber : String) : Vehicle
+        + findActiveVehicleByRegistration(regNo : String) : Vehicle
+        + isVehicleParked(regNo : String) : boolean
+        + getActiveTicketCount() : int
+        + getCapacity() : int
+        + getActiveTicketsSnapshot() : ParkingTicket[]
+        + getActiveVehiclesSnapshot() : Vehicle[]
+        + getFacility() : ParkingFacility
+        + getDailyParkingCollection() : double
+        + getDailyChargingCollection() : double
+        + getTotalDailyCollection() : double
+        + getCompletedExits() : List<ParkingExitSummary>
+        + getCompletedExitCount() : int
+    }
+
+    class ParkingExitSummary <<record>> {
+        + ticket : ParkingTicket
+        + vehicle : Vehicle
+        + durationMinutes : long
+        + parkingFee : double
+        + chargingFee : double
+        + totalFee : double
+        + releasedFloor : int
+        + releasedSlot : int
+        + exitTime : LocalDateTime
+        + formatReceipt() : String
+    }
+
+    ParkingManagementService ..> ParkingExitSummary : creates
+}
+
+package "com.smartparking.model" {
+
+    abstract class Vehicle {
+        - registrationNumber : String {readOnly}
+        - vehicleType : String {readOnly}
+        + Vehicle(registrationNumber : String, vehicleType : String)
+        + {final} getRegistrationNumber() : String
+        + {final} getVehicleType() : String
+        + {abstract} calculateFee(durationMinutes : long) : double
+    }
+
+    class TwoWheeler {
+        - hasHelmetStorage : boolean
+        + calculateFee(durationMinutes : long) : double
+    }
+
+    class Car {
+        - seatingCapacity : int
+        + calculateFee(durationMinutes : long) : double
+    }
+
+    interface Chargeable {
+        + {static} STANDARD_CHARGING_RATE_PER_KWH : double = 12.0
+        + {abstract} charge(energyKWh : double) : double
+        + {static} calculateChargingCost(energyKWh : double, ratePerKWh : double) : double
+    }
+
+    class ElectricCar {
+        - batteryCapacityKWh : double
+        - currentBatteryLevelKWh : double
+        + calculateFee(durationMinutes : long) : double
+        + charge(energyKWh : double) : double
+    }
+
+    class ParkingTicket {
+        - ticketNumber : String
+        - vehicleRegNo : String
+        - floorNumber : int
+        - slotNumber : int
+        - entryTime : LocalDateTime
+        - exitTime : LocalDateTime
+        - isActive : boolean
+        + closeTicket(exitTime : LocalDateTime) : void
+        + isActive() : boolean
+        + getDurationMinutes() : long
+    }
+
+    Vehicle <|-- TwoWheeler
+    Vehicle <|-- Car
+    Vehicle <|-- ElectricCar
+    ElectricCar ..|> Chargeable
+}
+
+package "com.smartparking.tasks" {
+
+    class ParkingFacility {
+        - slots : String[][]
+        + allocate(vehicleNo : String) : int[]
+        + release(floor : int, slot : int) : boolean
+    }
+
+    class ParkingSystemIntegrationDemo {
+        + {static} main(args : String[]) : void
+    }
+
+    ParkingSystemIntegrationDemo ..> ParkingManagementService : orchestrates
+}
+
+ParkingManagementService o-- ParkingFacility : coordinates slot grid
+ParkingManagementService *-- "0..*" ParkingTicket : activeTickets[] array
+ParkingManagementService *-- "0..*" Vehicle : activeVehicles[] array
+ParkingExitSummary o-- ParkingTicket : references
+ParkingExitSummary o-- Vehicle : references
+
+note bottom of ParkingManagementService
+  <b>Array-based Active Storage (Slide 18):</b>
+  Active tickets are stored in a fixed array ParkingTicket[capacity].
+  Sequential lookup O(n) enforces duplicate-check and exit-resolution.
+  Completed exits update running financial totals.
+end note
+
+@enduml

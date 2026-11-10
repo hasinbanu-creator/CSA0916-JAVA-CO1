@@ -1,0 +1,213 @@
+@startuml task12-extended-system
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+package "com.smartparking.model" {
+
+    abstract class Vehicle {
+        - registrationNumber : String {readOnly}
+        - vehicleType : String {readOnly}
+        + Vehicle(registrationNumber : String, vehicleType : String)
+        + {final} getRegistrationNumber() : String
+        + {final} getVehicleType() : String
+        + getVehicleInfo() : String
+        + {abstract} calculateFee(durationMinutes : long) : double
+        + calculateFee(entryTime : LocalDateTime, exitTime : LocalDateTime) : double
+        # {static} computeStartedHours(durationMinutes : long) : long
+        + {final} equals(obj : Object) : boolean
+        + {final} hashCode() : int
+    }
+
+    class TwoWheeler {
+        - hasHelmetStorage : boolean
+        + TwoWheeler(registrationNumber : String, hasHelmetStorage : boolean)
+        + calculateFee(durationMinutes : long) : double
+    }
+
+    class Car {
+        - seatingCapacity : int
+        + Car(registrationNumber : String, seatingCapacity : int)
+        + calculateFee(durationMinutes : long) : double
+    }
+
+    class ElectricCar {
+        - batteryCapacityKWh : double
+        - currentBatteryLevelKWh : double
+        + ElectricCar(registrationNumber : String, batteryCapacityKWh : double, currentBatteryLevelKWh : double)
+        + calculateFee(durationMinutes : long) : double
+        + charge(energyKWh : double) : double
+        + getBatteryCapacityKWh() : double
+        + getCurrentChargeKWh() : double
+    }
+
+    class ElectricBike {
+        - flatFee : double
+        + ElectricBike(registrationNumber : String, flatFee : double)
+        + ElectricBike(registrationNumber : String)
+        + getFlatFee() : double
+        + calculateFee(durationMinutes : long) : double
+        + calculateFee(entryTime : LocalDateTime, exitTime : LocalDateTime) : double
+    }
+
+    class DeliveryVan {
+        - deliveryCompany : String
+        + DeliveryVan(registrationNumber : String, deliveryCompany : String)
+        + DeliveryVan(registrationNumber : String)
+        + getDeliveryCompany() : String
+        + calculateFee(durationMinutes : long) : double
+        + calculateFee(entryTime : LocalDateTime, exitTime : LocalDateTime) : double
+        + {static} calculatePeakMinutes(entryTime : LocalDateTime, exitTime : LocalDateTime) : long
+    }
+
+    interface Chargeable {
+        + {static} STANDARD_CHARGING_RATE_PER_KWH : double = 12.0
+        + {abstract} charge(energyKWh : double) : double
+        + {abstract} getBatteryCapacityKWh() : double
+        + {abstract} getCurrentChargeKWh() : double
+        + {static} calculateChargingCost(energyKWh : double, ratePerKWh : double) : double
+        + {static} validateEnergy(energyKWh : double) : void
+    }
+
+    class ParkingTariff <<utility>> {
+        + {static} TWO_WHEELER_RATE_PER_HOUR : double = 10.0
+        + {static} CAR_RATE_PER_HOUR : double = 30.0
+        + {static} ELECTRIC_CAR_RATE_PER_HOUR : double = 30.0
+        + {static} FLAT_EBIKE_FEE : double = 15.0
+        + {static} DELIVERY_VAN_PEAK_MULTIPLIER : double = 2.0
+        + {static} DELIVERY_VAN_PEAK_RATE_PER_HOUR : double = 60.0
+        + {static} DELIVERY_VAN_OFF_PEAK_RATE_PER_HOUR : double = 30.0
+        + {static} DELIVERY_VAN_PEAK_START : LocalTime = 09:00
+        + {static} DELIVERY_VAN_PEAK_END : LocalTime = 17:00
+        + {static} calculateStartedHours(durationMinutes : long) : long
+    }
+
+    interface ParkingPass {
+        + {abstract} getPassId() : String
+        + {abstract} getHolderId() : String
+        + {abstract} getVehicleRegNo() : String
+        + {abstract} getPassType() : String
+        + {abstract} isValidAt(timestamp : LocalDateTime) : boolean
+        + isParkingFeeWaived() : boolean
+    }
+
+    class MonthlyPass {
+        - passId : String
+        - holderId : String
+        - userRole : String
+        - vehicleRegNo : String
+        - validMonth : YearMonth
+        + MonthlyPass(passId : String, holderId : String, userRole : String, regNo : String, month : YearMonth)
+        + isValidAt(timestamp : LocalDateTime) : boolean
+    }
+
+    class VisitorOneDayPass {
+        - passId : String
+        - visitorId : String
+        - vehicleRegNo : String
+        - validFrom : LocalDateTime
+        - validTo : LocalDateTime
+        + VisitorOneDayPass(passId : String, visitorId : String, regNo : String, validDate : LocalDate)
+        + VisitorOneDayPass(passId : String, visitorId : String, regNo : String, from : LocalDateTime, to : LocalDateTime)
+        + isValidAt(timestamp : LocalDateTime) : boolean
+    }
+
+    class ParkingTicket {
+        - ticketNumber : String
+        - vehicleRegNo : String
+        - vehicleType : String
+        - floorNumber : int
+        - slotNumber : int
+        - entryTime : LocalDateTime
+        - exitTime : LocalDateTime
+        - isActive : boolean
+        - pass : ParkingPass
+        + ParkingTicket(ticketNumber : String, regNo : String, type : String, floor : int, slot : int, entry : LocalDateTime, pass : ParkingPass)
+        + closeTicket(exitTime : LocalDateTime) : void
+        + isActive() : boolean
+        + hasPass() : boolean
+        + getPass() : ParkingPass
+    }
+
+    Vehicle <|-- TwoWheeler
+    Vehicle <|-- Car
+    Vehicle <|-- ElectricCar
+    Vehicle <|-- ElectricBike
+    Vehicle <|-- DeliveryVan
+    ElectricCar ..|> Chargeable
+
+    ParkingPass <|.. MonthlyPass
+    ParkingPass <|.. VisitorOneDayPass
+    ParkingTicket o-- "0..1" ParkingPass : associated pass
+}
+
+package "com.smartparking.tasks" {
+
+    class ParkingFacility {
+        - slots : String[][]
+        + ParkingFacility(slotsPerFloor : int[])
+        + allocate(vehicleNo : String) : int[]
+        + release(floor : int, slot : int) : boolean
+        + getFloorCount() : int
+        + getSlotCount(floor : int) : int
+        + getTotalCapacity() : int
+        + isSlotOccupied(floor : int, slot : int) : boolean
+        + getOccupant(floor : int, slot : int) : String
+    }
+}
+
+package "com.smartparking.service" {
+
+    class ParkingManagementService {
+        - {static} SUPPORTED_VEHICLE_TYPES : Set<String>
+        - facility : ParkingFacility
+        - activeTickets : ParkingTicket[]
+        - activeVehicles : Vehicle[]
+        - capacity : int
+        - activeCount : int
+        - ticketSequence : int
+        - dailyParkingCollection : double
+        - dailyChargingCollection : double
+        - completedExits : List<ParkingExitSummary>
+        + parkVehicle(vehicle : Vehicle, entryTime : LocalDateTime, pass : ParkingPass) : ParkingTicket
+        + parkVehicle(vehicle : Vehicle, entryTime : LocalDateTime) : ParkingTicket
+        + processExit(ticketNumber : String, exitTime : LocalDateTime, energy : double, pass : ParkingPass) : ParkingExitSummary
+        + processExit(ticketNumber : String, exitTime : LocalDateTime, energy : double) : ParkingExitSummary
+        + processExitByRegistration(regNo : String, exitTime : LocalDateTime, energy : double, pass : ParkingPass) : ParkingExitSummary
+    }
+
+    class ParkingExitSummary <<record>> {
+        + ticket : ParkingTicket
+        + vehicle : Vehicle
+        + durationMinutes : long
+        + parkingFee : double
+        + chargingFee : double
+        + totalFee : double
+        + releasedFloor : int
+        + releasedSlot : int
+        + exitTime : LocalDateTime
+        + formatReceipt() : String
+    }
+
+    ParkingManagementService o-- ParkingFacility : coordinates slot grid
+    ParkingManagementService *-- "0..*" ParkingTicket : active storage
+    ParkingManagementService *-- "0..*" Vehicle : active storage
+    ParkingManagementService ..> ParkingExitSummary : creates
+    ParkingExitSummary o-- ParkingTicket : references
+    ParkingExitSummary o-- Vehicle : references
+}
+
+note bottom of ParkingFacility
+  <b>Five-Floor Jagged Array Representation:</b>
+  Configured via slotsPerFloor = [w, x, y, z, v].
+  Preserves O(1) direct slot access slots[f][s]
+  and flexible vertical expansion.
+end note
+
+note bottom of DeliveryVan
+  <b>Time-of-Day Dynamic Surge Pricing:</b>
+  [09:00 - 17:00]: Peak surge @ Rs 60/hr (2x Car)
+  Outside [09:00 - 17:00]: Off-peak @ Rs 30/hr (1x Car)
+end note
+
+@enduml

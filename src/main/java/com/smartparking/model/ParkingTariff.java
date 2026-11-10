@@ -26,6 +26,24 @@ public final class ParkingTariff {
     /** Baseline hourly tariff for electric cars in INR. */
     public static final double ELECTRIC_CAR_RATE_PER_HOUR = 30.0;
 
+    /** Configurable baseline flat parking fee for electric bikes in INR (Task 12). */
+    public static final double FLAT_EBIKE_FEE = 15.0;
+
+    /** Delivery van peak surcharge multiplier (Task 12). */
+    public static final double DELIVERY_VAN_PEAK_MULTIPLIER = 2.0;
+
+    /** Delivery van peak window start time (09:00 AM inclusive). */
+    public static final java.time.LocalTime DELIVERY_VAN_PEAK_START = java.time.LocalTime.of(9, 0);
+
+    /** Delivery van peak window end time (05:00 PM / 17:00 boundary). */
+    public static final java.time.LocalTime DELIVERY_VAN_PEAK_END = java.time.LocalTime.of(17, 0);
+
+    /** Hourly tariff for delivery vans during peak delivery hours (9 AM - 5 PM) in INR (Rs 60.0). */
+    public static final double DELIVERY_VAN_PEAK_RATE_PER_HOUR = CAR_RATE_PER_HOUR * DELIVERY_VAN_PEAK_MULTIPLIER;
+
+    /** Hourly tariff for delivery vans outside peak hours in INR (standard car rate = Rs 30.0). */
+    public static final double DELIVERY_VAN_OFF_PEAK_RATE_PER_HOUR = CAR_RATE_PER_HOUR;
+
     /** Minutes per whole hour constant. */
     public static final int MINUTES_PER_HOUR = 60;
 

@@ -53,6 +53,44 @@ public class ParkingFacility {
         return true;
     }
 
+    /** Returns the number of floors configured in the facility. */
+    public int getFloorCount() {
+        return slots.length;
+    }
+
+    /** Returns the slot capacity of a specific floor, or -1 if the floor is invalid. */
+    public int getSlotCount(int floor) {
+        if (floor < 0 || floor >= slots.length) {
+            return -1;
+        }
+        return slots[floor].length;
+    }
+
+    /** Returns total slot capacity summed across all floors. */
+    public int getTotalCapacity() {
+        int total = 0;
+        for (String[] floorSlots : slots) {
+            total += floorSlots.length;
+        }
+        return total;
+    }
+
+    /** Checks whether the specified slot coordinates are occupied. */
+    public boolean isSlotOccupied(int floor, int slot) {
+        if (floor < 0 || floor >= slots.length || slot < 0 || slot >= slots[floor].length) {
+            return false;
+        }
+        return slots[floor][slot] != null;
+    }
+
+    /** Returns the registration number occupying the slot, or null if vacant/invalid. */
+    public String getOccupant(int floor, int slot) {
+        if (floor < 0 || floor >= slots.length || slot < 0 || slot >= slots[floor].length) {
+            return null;
+        }
+        return slots[floor][slot];
+    }
+
     public static void main(String[] args) {
         // floor 0 has 2 slots, floor 1 has 1 slot
         ParkingFacility p = new ParkingFacility(new int[]{2, 1});

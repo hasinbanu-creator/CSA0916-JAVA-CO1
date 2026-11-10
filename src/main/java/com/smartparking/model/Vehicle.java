@@ -76,6 +76,31 @@ public abstract class Vehicle {
     public abstract double calculateFee(long durationMinutes);
 
     /**
+     * Calculates the parking fee based on chronological entry and exit timestamps.
+     * Default implementation computes elapsed duration in minutes and delegates to
+     * {@link #calculateFee(long)}. Subclasses featuring time-of-day surge pricing
+     * (such as {@code DeliveryVan}) override this method to inspect time windows.
+     *
+     * @param entryTime timestamp of entry (non-null)
+     * @param exitTime  timestamp of exit (non-null, must not be before entryTime)
+     * @return calculated parking fee in rupees
+     * @throws IllegalArgumentException if timestamps are null or exitTime is before entryTime
+     */
+    public double calculateFee(java.time.LocalDateTime entryTime, java.time.LocalDateTime exitTime) {
+        if (entryTime == null) {
+            throw new IllegalArgumentException("Entry time cannot be null.");
+        }
+        if (exitTime == null) {
+            throw new IllegalArgumentException("Exit time cannot be null.");
+        }
+        if (exitTime.isBefore(entryTime)) {
+            throw new IllegalArgumentException("Exit time (" + exitTime + ") cannot be before entry time (" + entryTime + ").");
+        }
+        long durationMinutes = java.time.Duration.between(entryTime, exitTime).toMinutes();
+        return calculateFee(durationMinutes);
+    }
+
+    /**
      * Helper method to compute billable hours rounded up to the next full started hour.
      * Delegates to the overflow-safe calculation in ParkingTariff.
      *

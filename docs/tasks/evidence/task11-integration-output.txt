@@ -1,0 +1,64 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ------------< com.smartparking:campus-smart-parking-system >------------
+[INFO] Building Campus Smart-Parking System 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- exec:3.7.0:java (default-cli) @ campus-smart-parking-system ---
+================================================================================
+       CAMPUS SMART-PARKING SYSTEM - TASK 11 INTEGRATED SYSTEM DEMO
+================================================================================
+
+--- 1. Initializing Multi-Level Parking Facility ---
+Facility Initialized: 2 Floors, 4 Total Slots (Slots per floor: [2, 2])
+Active Ticket Storage: Array-based ParkingTicket[4]
+
+--- 2. Vehicle Entry & Slot Allocation ---
+Admitted: KA01AB1001   | Category: TWO_WHEELER  | Ticket: TKT-1001 | Location: Floor 0, Slot 0
+Admitted: TN09CD2002   | Category: CAR          | Ticket: TKT-1002 | Location: Floor 0, Slot 1
+Admitted: DL01EV3003   | Category: ELECTRIC_CAR | Ticket: TKT-1003 | Location: Floor 1, Slot 0
+Admitted: MH02EF4004   | Category: CAR          | Ticket: TKT-1004 | Location: Floor 1, Slot 1 [LAST FREE SLOT]
+Active Parked Vehicles: 4 / 4
+
+--- 3. Boundary & Invalid Case Demonstrations ---
+[REJECTED - Facility Full]: Active ticket storage is full. Maximum concurrent capacity of 4 reached.
+[REJECTED - Duplicate Reg ]: Duplicate entry rejected: Vehicle TN09CD2002 already has an active parking session (Ticket: TKT-1002).
+[REJECTED - Unknown Ticket]: Invalid ticket: No active parking session found for ticket 'TKT-9999'.
+
+--- 4. Vehicle Departures, Fee Calculation & Slot Release ---
+Departed: KA01AB1001   | Duration:  75 min | Parking: Rs  20.00 | Charging: Rs  0.00 | Total: Rs  20.00 | Released: [0, 0]
+Re-admitted into freed slot: AP03GH5005   | Ticket: TKT-1005 | Allocated Location: Floor 0, Slot 0
+Departed: TN09CD2002   | Duration: 120 min | Parking: Rs  60.00 | Charging: Rs  0.00 | Total: Rs  60.00 | Released: [0, 1]
+Departed: DL01EV3003   | Duration: 150 min | Parking: Rs  90.00 | Charging: Rs 180.00 | Total: Rs 270.00 | Released: [1, 0]
+Departed: MH02EF4004   | Duration:  30 min | Parking: Rs  30.00 | Charging: Rs  0.00 | Total: Rs  30.00 | Released: [1, 1]
+Departed: AP03GH5005   | Duration:  25 min | Parking: Rs  30.00 | Charging: Rs  0.00 | Total: Rs  30.00 | Released: [0, 0]
+
+--- 5. Daily Collection Reconciliation ---
+Hand-Calculated Revenue : Parking = Rs 230.00, Charging = Rs 180.00, Total = Rs 410.00
+Program Recorded Revenue: Parking = Rs 230.00, Charging = Rs 180.00, Total = Rs 410.00
+Financial Audit Match   : PASSED (100% RECONCILED)
+
+--- 6. Illustrative Lookup Microbenchmark (N = 1000 active tickets) ---
+Dataset Size    : 1000 active tickets (identical instances stored across all 3 structures)
+Lookup Target   : License plate 'REG-850' (equivalent search key at ~85% array depth)
+Warm-up Runs    : 5000 iterations (HotSpot C2 JIT warm-up)
+Measurement     : 20000 timed iterations
+--------------------------------------------------------------------------------
+1. ParkingTicket[] (Linear Scan) : ~10510 ns / lookup | Theoretical: O(n) [850 comparisons]
+2. ArrayList (Linear Scan)       : ~10916 ns / lookup | Theoretical: O(n) [850 comparisons]
+3. HashMap (Hash Key Lookup)     : ~   41 ns / lookup | Theoretical: O(1) [1 bucket lookup]
+--------------------------------------------------------------------------------
+Note: This illustrative microbenchmark demonstrates asymptotic O(n) vs O(1) trends.
+Actual wall-clock speedup depends on JVM heap sizing, Compressed OOPs, and CPU caches.
+For small lots (N <= 100), contiguous array cache locality remains highly competitive.
+
+================================================================================
+                  TASK 11 INTEGRATION DEMO COMPLETE
+================================================================================
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  1.562 s
+[INFO] Finished at: 2026-11-10T10:46:47+05:30
+[INFO] ------------------------------------------------------------------------
