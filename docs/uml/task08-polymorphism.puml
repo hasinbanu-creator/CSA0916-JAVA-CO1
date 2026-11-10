@@ -1,0 +1,90 @@
+@startuml task08-polymorphism
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+package "com.smartparking.model" {
+    abstract class Vehicle {
+        - registrationNumber : String {readOnly}
+        - vehicleType : String {readOnly}
+        + Vehicle(registrationNumber : String, vehicleType : String)
+        + {final} getRegistrationNumber() : String
+        + {final} getVehicleType() : String
+        + getVehicleInfo() : String
+        + {abstract} calculateFee(durationMinutes : long) : double
+        + {final} equals(obj : Object) : boolean
+        + {final} hashCode() : int
+        + toString() : String
+    }
+
+    class TwoWheeler {
+        - hasHelmetStorage : boolean {readOnly}
+        + TwoWheeler(registrationNumber : String, hasHelmetStorage : boolean)
+        + hasHelmetStorage() : boolean
+        + calculateFee(durationMinutes : long) : double
+        + toString() : String
+    }
+
+    class Car {
+        - seatingCapacity : int {readOnly}
+        + Car(registrationNumber : String, seatingCapacity : int)
+        + getSeatingCapacity() : int
+        + calculateFee(durationMinutes : long) : double
+        + toString() : String
+    }
+
+    class ElectricCar {
+        - batteryCapacityKWh : double {readOnly}
+        - currentBatteryLevelKWh : double
+        - isCharging : boolean
+        + ElectricCar(registrationNumber : String, batteryCapacityKWh : double)
+        + getBatteryCapacityKWh() : double
+        + isCharging() : boolean
+        + calculateFee(durationMinutes : long) : double
+        + toString() : String
+    }
+
+    final class ParkingTariff <<utility>> {
+        + {static} TWO_WHEELER_RATE_PER_HOUR : double = 10.0
+        + {static} CAR_RATE_PER_HOUR : double = 30.0
+        + {static} ELECTRIC_CAR_RATE_PER_HOUR : double = 30.0
+        + {static} MINUTES_PER_HOUR : int = 60
+        - ParkingTariff()
+        + {static} calculateStartedHours(durationMinutes : long) : long
+    }
+
+    Vehicle <|-- TwoWheeler : extends
+    Vehicle <|-- Car : extends
+    Vehicle <|-- ElectricCar : extends
+}
+
+package "com.smartparking.tasks" {
+    class FeeDemo {
+        + {static} calculateFee(vehicle : Vehicle, durationMinutes : long) : double
+        + {static} calculateFee(vehicle : Vehicle, entryTime : LocalTime, exitTime : LocalTime) : double
+        + {static} calculateFee(vehicle : Vehicle, wholeHours : int) : double
+        + {static} calculateFee(vehicle : Vehicle, entryDateTime : LocalDateTime, exitDateTime : LocalDateTime) : double
+        + {static} getSubclassSpecificFeature(vehicle : Vehicle) : String
+        + {static} main(args : String[]) : void
+    }
+
+    FeeDemo ..> Vehicle : upcasts to Vehicle[]\ninvokes polymorphic calculateFee()
+    FeeDemo ..> ParkingTariff : uses constants
+}
+
+note right of FeeDemo
+  **Compile-Time Polymorphism (Static Binding):**
+  Overloaded calculateFee(...) with multiple parameter signatures
+  resolved by javac based on static types.
+
+  **Runtime Polymorphism (Dynamic Binding):**
+  Vehicle[] array holds TwoWheeler, Car, ElectricCar instances.
+  JVM vtable dispatch invokes subclass calculateFee() at runtime.
+
+  **Safe Downcasting:**
+  Pattern matching instanceof allows safe inspection
+  of subtype-specific features.
+end note
+
+@enduml
+
