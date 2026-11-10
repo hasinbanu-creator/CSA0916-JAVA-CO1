@@ -1,0 +1,85 @@
+@startuml task07-method-overriding
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+abstract class Vehicle {
+    - registrationNumber : String {readOnly}
+    - vehicleType : String {readOnly}
+    + Vehicle(registrationNumber : String, vehicleType : String)
+    + {final} getRegistrationNumber() : String
+    + {final} getVehicleType() : String
+    + getVehicleInfo() : String
+    + {abstract} calculateFee(durationMinutes : long) : double
+    + equals(obj : Object) : boolean
+    + hashCode() : int
+    + toString() : String
+}
+
+class TwoWheeler {
+    - hasHelmetStorage : boolean {readOnly}
+    + TwoWheeler(registrationNumber : String, hasHelmetStorage : boolean)
+    + hasHelmetStorage() : boolean
+    + getDetailedInfo() : String
+    + calculateFee(durationMinutes : long) : double
+    + toString() : String
+}
+
+class Car {
+    - seatingCapacity : int {readOnly}
+    + Car(registrationNumber : String, seatingCapacity : int)
+    + getSeatingCapacity() : int
+    + getDetailedInfo() : String
+    + calculateFee(durationMinutes : long) : double
+    + toString() : String
+}
+
+class ElectricCar {
+    - batteryCapacityKWh : double {readOnly}
+    - currentBatteryLevelKWh : double
+    - isCharging : boolean
+    + ElectricCar(registrationNumber : String, batteryCapacityKWh : double)
+    + ElectricCar(registrationNumber : String, batteryCapacityKWh : double, initialBatteryLevelKWh : double)
+    + getBatteryCapacityKWh() : double
+    + getCurrentBatteryLevelKWh() : double
+    + isCharging() : boolean
+    + startCharging() : void
+    + stopCharging() : void
+    + charge(energyKWh : double) : void
+    + getDetailedInfo() : String
+    + calculateFee(durationMinutes : long) : double
+    + toString() : String
+}
+
+final class ParkingTariff <<utility>> {
+    + {static} TWO_WHEELER_RATE_PER_HOUR : double = 10.0
+    + {static} CAR_RATE_PER_HOUR : double = 30.0
+    + {static} ELECTRIC_CAR_RATE_PER_HOUR : double = 30.0
+    + {static} MINUTES_PER_HOUR : int = 60
+    - ParkingTariff()
+    + {static} calculateStartedHours(durationMinutes : long) : long
+}
+
+Vehicle <|-- TwoWheeler : extends
+Vehicle <|-- Car : extends
+Vehicle <|-- ElectricCar : extends
+
+TwoWheeler ..> ParkingTariff : uses
+Car ..> ParkingTariff : uses
+ElectricCar ..> ParkingTariff : uses
+
+note top of Vehicle
+  Identity defined by registrationNumber.
+  equals() and hashCode() are implemented here
+  and inherited by all subclasses.
+  getRegistrationNumber() is marked {final}.
+end note
+
+note right of ParkingTariff
+  Utility class marked {final}
+  Private constructor prevents instantiation.
+  Holds constants and ceiling started-hour logic.
+end note
+
+@enduml
+

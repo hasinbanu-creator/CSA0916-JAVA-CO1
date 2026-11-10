@@ -3,11 +3,10 @@ package com.smartparking.model;
 /**
  * Represents a two-wheeled vehicle (motorcycle, scooter, moped).
  *
- * Demonstrates:
- * - Direct inheritance from the abstract Vehicle superclass (Hierarchical inheritance)
- * - Constructor chaining to the superclass via super(...)
- * - Addition of specialized subclass state (hasHelmetStorage)
- * - Reuse of inherited behaviour via super.getVehicleInfo()
+ * Demonstrates Task 7 concepts:
+ * - Overriding calculateFee(long) to implement specialized two-wheeler tariff
+ * - Use of the @Override annotation for compiler verification
+ * - Overriding toString() to augment base vehicle description with helmet storage details
  */
 public class TwoWheeler extends Vehicle {
     private final boolean hasHelmetStorage;
@@ -34,11 +33,29 @@ public class TwoWheeler extends Vehicle {
     }
 
     /**
+     * Calculates the parking fee for a two-wheeler stay.
+     * Charges Rs 10.0 per started hour.
+     *
+     * @param durationMinutes parking stay duration in minutes (must be non-negative)
+     * @return calculated parking fee in INR
+     */
+    @Override
+    public double calculateFee(long durationMinutes) {
+        long billableHours = ParkingTariff.calculateStartedHours(durationMinutes);
+        return billableHours * ParkingTariff.TWO_WHEELER_RATE_PER_HOUR;
+    }
+
+    /**
      * Specialized display method demonstrating invocation of inherited superclass behaviour.
      *
      * @return complete two-wheeler details
      */
     public String getDetailedInfo() {
         return super.getVehicleInfo() + ", Helmet Storage: " + (hasHelmetStorage ? "Yes" : "No");
+    }
+
+    @Override
+    public String toString() {
+        return "TwoWheeler[" + super.toString() + ", helmetStorage=" + hasHelmetStorage + "]";
     }
 }

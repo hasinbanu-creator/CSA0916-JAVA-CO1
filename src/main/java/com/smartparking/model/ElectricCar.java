@@ -3,11 +3,10 @@ package com.smartparking.model;
 /**
  * Represents an electric automobile (EV) requiring standard parking or dedicated charging slots.
  *
- * Demonstrates:
- * - Direct inheritance from the abstract Vehicle superclass (Hierarchical inheritance)
- * - Constructor chaining to the superclass via super(...)
- * - Addition of specialized battery and charging state
- * - Clean encapsulation of charging behavior without prematurely implementing Task 7 fee calculations
+ * Demonstrates Task 7 concepts:
+ * - Overriding calculateFee(long) to implement base EV parking tariff
+ * - Use of the @Override annotation for compiler verification
+ * - Overriding toString() to display battery capacity, charge level, and charging status
  */
 public class ElectricCar extends Vehicle {
     private final double batteryCapacityKWh;
@@ -90,6 +89,20 @@ public class ElectricCar extends Vehicle {
     }
 
     /**
+     * Calculates the parking fee for an electric car stay.
+     * Base parking rate is Rs 30.0 per started hour.
+     * Note: Energy charging fee is separate and handled via dedicated charging capabilities.
+     *
+     * @param durationMinutes parking stay duration in minutes (must be non-negative)
+     * @return calculated parking fee in INR
+     */
+    @Override
+    public double calculateFee(long durationMinutes) {
+        long billableHours = ParkingTariff.calculateStartedHours(durationMinutes);
+        return billableHours * ParkingTariff.ELECTRIC_CAR_RATE_PER_HOUR;
+    }
+
+    /**
      * Specialized display method demonstrating invocation of inherited superclass behaviour.
      *
      * @return complete electric car details
@@ -99,5 +112,11 @@ public class ElectricCar extends Vehicle {
                 ", Battery: " + currentBatteryLevelKWh + "/" + batteryCapacityKWh + " kWh" +
                 ", Charging: " + (isCharging ? "Yes" : "No");
     }
-}
 
+    @Override
+    public String toString() {
+        return "ElectricCar[" + super.toString() +
+                ", battery=" + currentBatteryLevelKWh + "/" + batteryCapacityKWh + "kWh" +
+                ", charging=" + isCharging + "]";
+    }
+}
