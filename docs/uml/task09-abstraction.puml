@@ -1,0 +1,120 @@
+@startuml task09-abstraction
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+package "com.smartparking.model" {
+
+    abstract class Vehicle {
+        - registrationNumber : String {readOnly}
+        - vehicleType : String {readOnly}
+        + Vehicle(registrationNumber : String, vehicleType : String)
+        + {final} getRegistrationNumber() : String
+        + {final} getVehicleType() : String
+        + getVehicleInfo() : String
+        + {abstract} calculateFee(durationMinutes : long) : double
+        + {final} equals(obj : Object) : boolean
+        + {final} hashCode() : int
+        + toString() : String
+    }
+
+    class TwoWheeler {
+        - hasHelmetStorage : boolean {readOnly}
+        + TwoWheeler(registrationNumber : String, hasHelmetStorage : boolean)
+        + hasHelmetStorage() : boolean
+        + calculateFee(durationMinutes : long) : double
+        + getDetailedInfo() : String
+        + toString() : String
+    }
+
+    class Car {
+        - seatingCapacity : int {readOnly}
+        + Car(registrationNumber : String, seatingCapacity : int)
+        + getSeatingCapacity() : int
+        + calculateFee(durationMinutes : long) : double
+        + getDetailedInfo() : String
+        + toString() : String
+    }
+
+    interface Chargeable {
+        + {static} STANDARD_CHARGING_RATE_PER_KWH : double = 12.0
+        + {abstract} charge(energyKWh : double) : double
+        + {abstract} getBatteryCapacityKWh() : double
+        + {abstract} getCurrentChargeKWh() : double
+        + getRemainingCapacityKWh() : double
+        + getBatteryPercentage() : double
+        + estimateChargingTimeMinutes(chargingPowerKW : double) : double
+        + estimateChargingTimeMinutes(chargingPowerKW : double, efficiency : double) : double
+        + {static} calculateChargingCost(energyKWh : double, ratePerKWh : double) : double
+        + {static} validateEnergy(energyKWh : double) : void
+        + {static} validatePower(powerKW : double) : void
+    }
+
+    class ElectricCar {
+        - batteryCapacityKWh : double {readOnly}
+        - currentBatteryLevelKWh : double
+        - isCharging : boolean
+        + ElectricCar(registrationNumber : String, batteryCapacityKWh : double)
+        + ElectricCar(registrationNumber : String, batteryCapacityKWh : double, initialBatteryLevelKWh : double)
+        + getBatteryCapacityKWh() : double
+        + getCurrentChargeKWh() : double
+        + getCurrentBatteryLevelKWh() : double
+        + isCharging() : boolean
+        + startCharging() : void
+        + stopCharging() : void
+        + charge(energyKWh : double) : double
+        + calculateFee(durationMinutes : long) : double
+        + getDetailedInfo() : String
+        + toString() : String
+    }
+
+    final class ParkingTariff <<utility>> {
+        + {static} TWO_WHEELER_RATE_PER_HOUR : double = 10.0
+        + {static} CAR_RATE_PER_HOUR : double = 30.0
+        + {static} ELECTRIC_CAR_RATE_PER_HOUR : double = 30.0
+        + {static} MINUTES_PER_HOUR : int = 60
+        - ParkingTariff()
+        + {static} calculateStartedHours(durationMinutes : long) : long
+    }
+
+    ' Inheritance relationships (Generalization)
+    Vehicle <|-- TwoWheeler : extends
+    Vehicle <|-- Car : extends
+    Vehicle <|-- ElectricCar : extends
+
+    ' Interface realization (Implementation)
+    ElectricCar ..|> Chargeable : implements
+
+    ' Dependencies
+    TwoWheeler ..> ParkingTariff : uses
+    Car ..> ParkingTariff : uses
+    ElectricCar ..> ParkingTariff : uses
+}
+
+package "com.smartparking.tasks" {
+    class AbstractionDemo {
+        + {static} main(args : String[]) : void
+    }
+
+    AbstractionDemo ..> Vehicle : holds references
+    AbstractionDemo ..> Chargeable : holds references
+    AbstractionDemo ..> ElectricCar : instantiates
+    AbstractionDemo ..> Car : instantiates
+}
+
+note top of Vehicle
+  **Abstract Superclass:**
+  Encapsulates common state (regNo, type) and invariants.
+  Defines abstract contract calculateFee(long)
+  implemented by each concrete vehicle subclass.
+end note
+
+note right of Chargeable
+  **Capability Interface:**
+  Separates EV charging capability ("can-do")
+  from core vehicle identity ("is-a").
+  Includes default and static methods.
+  charge() returns accepted energy for fair billing.
+end note
+
+@enduml
